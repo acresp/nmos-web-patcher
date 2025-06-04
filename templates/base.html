@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Notélé NMOS Web Router{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+        .video { background-color: lightgreen; }
+        .audio { background-color: lightblue; }
+        .ancillary { background-color: lightgoldenrodyellow; }
+        .unknown { background-color: lightgrey; }
+        .list-group-item.active-source, .list-group-item.active-receiver {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        .selected-info { font-weight: bold; margin-top: 10px; }
+        .btn-take { font-size: 24px; font-weight: bold; background-color: red; color: white; }
+        #success-message { margin-top: 20px; color: green; font-weight: bold; }
+        @keyframes blink { 50% { background-color: red; color: white; } }
+        .blink { animation: blink 1s step-start 0s infinite; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

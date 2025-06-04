@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}NMOS Web Router{% endblock %}
+
+{% block content %}
+<h1 class="text-center">NMOS Web Router</h1>
+
+<div class="text-center mb-3">
+    <a href="{{ url_for('settings.settings') }}" class="btn btn-primary">Settings</a>
+</div>
+
+<div class="row">
+    <div class="col">
+        <h2>Destinations</h2>
+        <ul class="list-group">
+            {% for receiver in receivers %}
+                <li class="list-group-item {{ receiver.type }}" data-id="{{ receiver.id }}" onclick="selectReceiver('{{ receiver.id }}', this)">
+                    <strong>{{ receiver.node_name }} - </strong>{{ receiver.label }}
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="col">
+        <h2>Sources</h2>
+        <ul class="list-group">
+            <li class="list-group-item unknown" data-id="disconnect" onclick="selectSource('disconnect', this)">
+                <strong>Disconnect source</strong>
+            </li>
+            {% for source in sources %}
+                <li class="list-group-item {{ source.type }}" data-id="{{ source.id }}" onclick="selectSource('{{ source.id }}', this)">
+                    <strong>{{ source.node_name }} - </strong>{{ source.label }}
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="mt-3 text-center">
+    <button class="btn btn-take" onclick="changeSource()">TAKE</button>
+    <div id="success-message"></div>
+</div>
+
+<div class="selected-info">
+    <div>Selected Receiver: <span id="selected-receiver">None</span></div>
+    <div>Current Sender: <span id="current-sender">Unknown</span></div>
+    <div>Selected Source: <span id="selected-source">None</span></div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+{% endblock %}

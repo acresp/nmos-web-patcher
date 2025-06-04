@@ -35,6 +35,9 @@ def change_source(nodes, receiver_id, sender_id):
 
     receiver = next((r for r in receivers if r['id'] == receiver_id), None)
     sender = next((s for s in sources if s['id'] == sender_id), None)
+    if not sender:
+        print(f"[WARN] Sender ID {sender_id} not found in loaded sources")
+
 
     if not receiver or not sender:
         return {"status": "error", "message": "Receiver or sender not found"}

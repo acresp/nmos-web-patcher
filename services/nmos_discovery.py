@@ -68,22 +68,49 @@ def get_resource_type(resource):
 def fetch_node_data(node):
     node_url = node['url'].rstrip('/')
     nmos_version = node.get('versions', {}).get('nmos', 'v1.3')
-    data = {'receivers': [], 'sources': []}
+
+    data = {
+        'label': node.get('label', node.get('name', node_url)),
+        'ip': node.get('ip', node_url),
+        'version': nmos_version,
+        'receivers': [],
+        'sources': []
+    }
+
+    def build_url(base, version, resource):
+        if '/x-nmos' in base:
+            return f"{base}/node/{version}/{resource}/"
+        else:
+            return f"{base}/x-nmos/node/{version}/{resource}/"
 
     try:
-        rcv_url = f"{node_url}/node/{nmos_version}/receivers/"
+        rcv_url = build_url(node_url, nmos_version, 'receivers')
         r = requests.get(rcv_url, timeout=3)
-        if r.status_code == 200:
-            data['receivers'] = [d for d in r.json() if isinstance(d, dict)]
+        r.raise_for_status()
+        rcv_json = r.json()
+        if isinstance(rcv_json, list):
+            receivers = [d for d in rcv_json if isinstance(d, dict)]
+            for item in receivers:
+                item['node_name'] = node['name']
+            data['receivers'] = receivers
+        else:
+            print(f"[WARNING] Unexpected receivers format from {node['name']}: {type(rcv_json)}")
     except Exception as e:
-        print(f"❌ Failed to fetch receivers from {node['name']}: {e}")
+        print(f"[ERROR] Failed to fetch receivers from {node['name']}: {e}")
 
     try:
-        snd_url = f"{node_url}/node/{nmos_version}/senders/"
+        snd_url = build_url(node_url, nmos_version, 'senders')
         r = requests.get(snd_url, timeout=3)
-        if r.status_code == 200:
-            data['sources'] = [d for d in r.json() if isinstance(d, dict)]
+        r.raise_for_status()
+        snd_json = r.json()
+        if isinstance(snd_json, list):
+            senders = [d for d in snd_json if isinstance(d, dict)]
+            for item in senders:
+                item['node_name'] = node['name']
+            data['sources'] = senders
+        else:
+            print(f"[WARNING] Unexpected senders format from {node['name']}: {type(snd_json)}")
     except Exception as e:
-        print(f"❌ Failed to fetch sources from {node['name']}: {e}")
+        print(f"[ERROR] Failed to fetch senders from {node['name']}: {e}")
 
     return data

@@ -13,6 +13,10 @@ def index():
         'index.html',
         receivers=receivers,
         sources=sources,
+        nodes=nodes,
+        receiver_count=len(receivers),
+        source_count=len(sources),
+        node_count=len(nodes),
         selected_receiver_id=None,
         selected_source_id=None
     )

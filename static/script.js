@@ -1,3 +1,19 @@
+console.log("✅ script.js loaded");
+console.log("Initial Receivers:", initialReceivers);
+console.log("Initial Sources:", initialSources);
+console.log("Initial Nodes:", initialNodes);
+
+
+function toggleList(button) {
+    const ul = button.nextElementSibling;
+    const isVisible = !ul.classList.contains('d-none');
+    ul.classList.toggle('d-none');
+
+    const label = button.dataset.label;
+    button.textContent = (isVisible ? '▶ ' : '▼ ') + label;
+}
+
+
 let selectedSourceId = localStorage.getItem('selectedSourceId') || "";
 let selectedReceiverId = localStorage.getItem('selectedReceiverId') || "";
 
@@ -49,8 +65,7 @@ function fetchCurrentSender(receiverId) {
             }
             checkSourceMismatch();
         })
-        .catch(error => {
-            console.error('Error fetching current sender:', error);
+        .catch(() => {
             document.getElementById('current-sender').innerText = 'Unknown';
             checkSourceMismatch();
         });
@@ -61,21 +76,12 @@ function checkSourceMismatch() {
     const currentSenderText = document.getElementById('current-sender').innerText;
     const selectedSourceElement = document.getElementById('selected-source');
 
-    if (selectedSourceText !== "None" && selectedSourceText !== currentSenderText) {
-        selectedSourceElement.classList.add('blink');
-    } else {
-        selectedSourceElement.classList.remove('blink');
-    }
+    const currentIsUnknown = currentSenderText === "Unknown" || currentSenderText.trim() === "";
 }
 
 function changeSource() {
     if (!selectedSourceId || !selectedReceiverId) {
         alert('Please select both a source and a destination.');
-        return;
-    }
-
-    if (selectedSourceId === 'disconnect') {
-        disconnectReceiver();
         return;
     }
 
@@ -99,8 +105,7 @@ function changeSource() {
             msgEl.style.color = 'red';
         }
     })
-    .catch(error => {
-        console.error('Error changing source:', error);
+    .catch(() => {
         const msgEl = document.getElementById('success-message');
         msgEl.innerText = 'An error occurred while changing the source.';
         msgEl.style.color = 'red';
@@ -126,8 +131,7 @@ function disconnectReceiver() {
             msgEl.style.color = 'red';
         }
     })
-    .catch(error => {
-        console.error('Error disconnecting receiver:', error);
+    .catch(() => {
         const msgEl = document.getElementById('success-message');
         msgEl.innerText = 'An error occurred while disconnecting the receiver.';
         msgEl.style.color = 'red';

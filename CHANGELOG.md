@@ -7,6 +7,10 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.1] – 2025-06-04
+### Changed
+- Several bug fixes and UI improvements
+
 ## [1.2.0] – 2025-06-04
 ### Changed
 - Full codebase refactored into modular structure:

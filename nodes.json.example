@@ -1,0 +1,50 @@
+[
+    {
+        "name": "UltrixIPX",
+        "url": "http://192.168.1.10:8855/x-nmos/",
+        "versions": {
+            "connection": "v1.1",
+            "nmos": "v1.3"
+        }
+    },
+    {
+        "name": "Phabrix",
+        "url": "http://192.168.1.11:3000/x-nmos/",
+        "versions": {
+            "connection": "v1.1",
+            "nmos": "v1.3"
+        }
+    },
+    {
+        "name": "HDMIconverter",
+        "url": "http://192.168.1.12:8090/x-nmos/",
+        "versions": {
+            "connection": "v1.1",
+            "nmos": "v1.3"
+        }
+    },
+    {
+        "name": "StreamHub",
+        "url": "http://192.168.1.13:8001/x-nmos/",
+        "versions": {
+            "connection": "v1.1",
+            "nmos": "v1.3"
+        }
+    },
+    {
+        "name": "DecklinkIP",
+        "url": "http://192.168.1.14/x-nmos/",
+        "versions": {
+            "connection": "v1.1",
+            "nmos": "v1.3"
+        }
+    },
+    {
+        "name": "SNP",
+        "url": "http://192.168.1.15:8100/x-nmos/",
+        "versions": {
+            "connection": "v1.0",
+            "nmos": "v1.2"
+        }
+    }
+]

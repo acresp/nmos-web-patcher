@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Settings - Notélé NMOS Web Router{% endblock %}
+
+{% block content %}
+<h1 class="text-center">Settings - Notélé NMOS Web Router</h1>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Label</th>
+            <th>URL</th>
+            <th>NMOS Version</th>
+            <th>Connection Version</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="nodes-table"></tbody>
+</table>
+
+<div class="text-center">
+    <button class="btn btn-primary" onclick="addNode()">Add Node</button>
+    <button class="btn btn-success" onclick="saveNodes()">Save Nodes</button>
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Back</a>
+</div>
+
+<div id="message" class="info text-center mt-3" style="color: green;"></div>
+
+<script>
+    let nodes = {{ nodes | tojson }};
+
+    function renderTable() {
+        const table = document.getElementById('nodes-table');
+        table.innerHTML = '';
+        nodes.forEach((node, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" class="form-control" value="${node.name}" onchange="updateNode(${index}, 'name', this.value)"></td>
+                <td><input type="url" class="form-control" value="${node.url}" onchange="updateNode(${index}, 'url', this.value)"></td>
+                <td><input type="text" class="input-versions form-control" value="${node.versions?.nmos || ''}" readonly></td>
+                <td><input type="text" class="input-versions form-control" value="${node.versions?.connection || ''}" readonly></td>
+                <td>
+                    <div class="actions-container">
+                        <button class="btn btn-danger btn-delete" onclick="deleteNode(${index})">Delete</button>
+                        <button class="btn btn-info btn-detect" onclick="detectVersions(${index})">Detect</button>
+                    </div>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    function updateNode(index, key, value) {
+        nodes[index][key] = value;
+    }
+
+    function deleteNode(index) {
+        nodes.splice(index, 1);
+        renderTable();
+    }
+
+    function addNode() {
+        nodes.push({ name: '', url: '', versions: { nmos: '', connection: '' } });
+        renderTable();
+    }
+
+    function saveNodes() {
+        fetch('/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nodes)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = data.message;
+            messageDiv.style.color = data.status === 'success' ? 'green' : 'red';
+        });
+    }
+
+    function detectVersions(index) {
+        const node = nodes[index];
+        fetch('/detect_versions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: node.url })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                nodes[index].versions = data.versions;
+                renderTable();
+            } else {
+                alert('Failed to detect versions: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error detecting versions: ' + error);
+        });
+    }
+
+    window.onload = function() {
+        renderTable();
+    };
+</script>
+{% endblock %}

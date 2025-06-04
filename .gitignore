@@ -1,0 +1,30 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment (si utilisé localement)
+env/
+venv/
+.venv/
+
+# Node list config
+nodes.json
+._nodes.json
+
+# OS/macOS/IDE
+.DS_Store
+._.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+._*
+
+# Logs / backups
+*.log
+*.bak
+*.tmp
+
+# Python dotenv
+.env

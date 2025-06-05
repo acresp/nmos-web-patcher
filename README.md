@@ -1,4 +1,4 @@
-# NMOS Web Router
+# NMOS Web Patcher
 
 A web-based patchbay interface for routing NMOS IS-05 flows between devices.  
 Developed to provide a user-friendly way to connect senders and receivers across IP-based broadcast infrastructures.
@@ -27,8 +27,8 @@ Developed to provide a user-friendly way to connect senders and receivers across
 ### Setup
 
 ```bash
-git clone https://github.com/acresp/nmos-web-router.git
-cd nmos-web-router
+git clone https://github.com/acresp/nmos-web-patcher.git
+cd nmos-web-patcher
 pip install -r requirements.txt
 python app.py
 ```

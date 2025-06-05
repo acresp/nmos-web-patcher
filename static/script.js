@@ -1,9 +1,3 @@
-console.log("✅ script.js loaded");
-console.log("Initial Receivers:", initialReceivers);
-console.log("Initial Sources:", initialSources);
-console.log("Initial Nodes:", initialNodes);
-
-
 function toggleList(button) {
     const ul = button.nextElementSibling;
     const isVisible = !ul.classList.contains('d-none');

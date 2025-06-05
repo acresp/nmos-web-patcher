@@ -1,0 +1,8 @@
+Flask>=2.3
+requests>=2.31
+zeroconf>=0.132
+gunicorn>=21.2
+python-dotenv>=1.0.1
+pysdp>=0.4
+MarkupSafe>=2.1
+toolz>=0.12

@@ -2,25 +2,32 @@
 {% block title %}NMOS Web Patcher{% endblock %}
 
 {% block content %}
-<h1 class="text-center mb-3">NMOS Web Patcher</h1>
 
-<!-- Action buttons centered -->
-<div class="text-center mb-4">
-    <div class="d-inline-block me-2">
-        <button class="btn btn-danger btn-lg w-100 px-5" onclick="changeSource()">TAKE</button>
-    </div>
-    <div class="d-inline-block ms-2">
-        <button class="btn btn-outline-secondary btn-lg w-100 px-5" onclick="disconnectReceiver()">DISCONNECT</button>
-    </div>
-</div>
+<!-- Sticky Header -->
+<div class="sticky-top bg-white py-3 shadow-sm z-top border-bottom">
+    <h1 class="text-center mb-3">NMOS Web Patcher</h1>
 
-<!-- Global status summary -->
-<div class="text-center text-muted mb-2">
-  🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
+    <div class="text-center mb-2">
+        <div class="d-inline-block me-2">
+            <button class="btn btn-danger btn-lg w-100 px-5" onclick="changeSource()">TAKE</button>
+        </div>
+        <div class="d-inline-block ms-2">
+            <button class="btn btn-outline-secondary btn-lg w-100 px-5" onclick="disconnectReceiver()">DISCONNECT</button>
+        </div>
+        <div class="d-inline-block ms-2">
+            <a href="{{ url_for('settings.settings') }}" class="btn btn-outline-info btn-lg w-100 px-5">Settings</a>
+        </div>
+    </div>
+
+    <div class="text-center text-muted small mb-2">
+        🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
+    </div>
+
+    <div class="text-center" id="success-message"></div>
 </div>
 
 <!-- Main content: Destinations and Sources -->
-<div class="row">
+<div class="row mt-4">
     <div class="col-md-5">
         <h2>Destinations</h2>
         <div id="receivers-list">
@@ -71,9 +78,6 @@
         </div>
     </div>
 </div>
-
-<!-- Status Message -->
-<div class="mt-3 text-center" id="success-message"></div>
 
 <!-- Selected Info -->
 <div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">

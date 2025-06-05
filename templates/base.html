@@ -21,6 +21,7 @@
         @keyframes blink { 50% { background-color: red; color: white; } }
         .blink { animation: blink 1s step-start 0s infinite; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>

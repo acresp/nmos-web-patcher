@@ -1,139 +1,156 @@
 {% extends "base.html" %}
-{% block title %}Settings - NMOS Web Patcher{% endblock %}
+{% block title %}NMOS Web Patcher – Settings{% endblock %}
 
 {% block content %}
-<h1 class="text-center">Settings - NMOS Web Patcher</h1>
 
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Label</th>
-            <th>URL</th>
-            <th>NMOS Version</th>
-            <th>Connection Version</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="nodes-table"></tbody>
-</table>
-
-<div class="text-center">
-    <button class="btn btn-primary" onclick="addNode()">Add Node</button>
-    <button class="btn btn-success" onclick="saveNodes()">Save Nodes</button>
-    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Back</a>
+<!-- Sticky Header -->
+<div class="sticky-top bg-white py-3 shadow-sm z-top border-bottom">
+  <div class="text-center mb-3">
+    <h1 class="mb-0">NMOS Web Patcher</h1>
+    <div class="text-muted" style="font-size: 1.25rem;">Settings</div>
+  </div>
+  <div class="text-center mb-2">
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg px-5">Back</a>
+  </div>
 </div>
 
-<div id="message" class="info text-center mt-3" style="color: green;"></div>
-
-<script>
-    let nodes = {{ nodes | tojson }};
-
-    function renderTable() {
-        const table = document.getElementById('nodes-table');
-        table.innerHTML = '';
-        nodes.forEach((node, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="text" class="form-control" value="${node.name}" onchange="updateNode(${index}, 'name', this.value)"></td>
-                <td><input type="url" class="form-control" value="${node.url}" onchange="updateNode(${index}, 'url', this.value)"></td>
-                <td><input type="text" class="input-versions form-control" value="${node.versions?.nmos || ''}" readonly></td>
-                <td><input type="text" class="input-versions form-control" value="${node.versions?.connection || ''}" readonly></td>
-                <td>
-                    <div class="actions-container">
-                        <button class="btn btn-danger btn-delete" onclick="deleteNode(${index})">Delete</button>
-                        <button class="btn btn-info btn-detect" onclick="detectVersions(${index})">Detect</button>
-                    </div>
-                </td>
-            `;
-            table.appendChild(row);
-        });
-    }
-
-    function updateNode(index, key, value) {
-        nodes[index][key] = value;
-    }
-
-    function deleteNode(index) {
-        nodes.splice(index, 1);
-        renderTable();
-    }
-
-    function addNode() {
-        nodes.push({ name: '', url: '', versions: { nmos: '', connection: '' } });
-        renderTable();
-    }
-
-    function saveNodes() {
-        fetch('/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(nodes)
-        })
-        .then(response => response.json())
-        .then(data => {
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerText = data.message;
-            messageDiv.style.color = data.status === 'success' ? 'green' : 'red';
-        });
-    }
-
-    function detectVersions(index) {
-        const node = nodes[index];
-        fetch('/detect_versions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: node.url })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                nodes[index].versions = data.versions;
-                renderTable();
-            } else {
-                alert('Failed to detect versions: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('Error detecting versions: ' + error);
-        });
-    }
-
-    window.onload = function() {
-        renderTable();
-    };
-</script>
-
-<hr class="my-4">
-<h4>Other Settings</h4>
-<form id="refresh-settings-form" class="mb-3">
-  <div class="form-group row align-items-center">
-    <label for="refresh-interval" class="col-sm-3 col-form-label">Cache Refresh Time (sec):</label>
-    <div class="col-sm-2">
-      <input type="number" class="form-control" id="refresh-interval" min="10" required value="{{ refresh_interval }}">
-    </div>
-    <div class="col-sm-2">
-      <button type="submit" class="btn btn-outline-success">Save</button>
-    </div>
+<!-- Nodes Table -->
+<div class="card my-4">
+  <div class="card-header bg-light">
+    <strong>NMOS Nodes</strong>
   </div>
-</form>
+  <div class="card-body">
+    <table class="table table-bordered align-middle text-center">
+      <thead class="table-secondary">
+        <tr>
+          <th>Label</th>
+          <th>URL</th>
+          <th>NMOS Version</th>
+          <th>Connection Version</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="nodes-table"></tbody>
+    </table>
+
+    <div class="text-center mt-3">
+      <button class="btn btn-outline-primary me-2" onclick="addNode()">Add Node</button>
+      <button class="btn btn-outline-success" onclick="saveNodes()">Save Nodes</button>
+    </div>
+
+    <div id="message" class="text-center mt-3 fw-bold"></div>
+  </div>
+</div>
+
+<!-- Other Settings -->
+<div class="card mb-5">
+  <div class="card-header bg-light">
+    <strong>Other Settings</strong>
+  </div>
+  <div class="card-body">
+    <form id="refresh-settings-form" class="row g-3 align-items-center">
+      <div class="col-auto">
+        <label for="refresh-interval" class="col-form-label">Cache Refresh Time (sec):</label>
+      </div>
+      <div class="col-auto">
+        <input type="number" class="form-control" id="refresh-interval" min="10" required value="{{ refresh_interval }}">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-success">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
-document.getElementById("refresh-settings-form").addEventListener("submit", function(e) {
-  e.preventDefault();
-  const interval = parseInt(document.getElementById("refresh-interval").value);
-  if (interval >= 10) {
-    fetch("/update_refresh_interval", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_interval: interval })
-    })
-    .then(res => res.json())
-    .then(data => alert(data.message || "Saved"))
-    .catch(() => alert("Failed to save refresh interval"));
-  } else {
-    alert("Minimum refresh interval is 10 seconds");
+  let nodes = {{ nodes | tojson }};
+
+  function renderTable() {
+    const table = document.getElementById('nodes-table');
+    table.innerHTML = '';
+    nodes.forEach((node, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="text" class="form-control" value="${node.name}" onchange="updateNode(${index}, 'name', this.value)"></td>
+        <td><input type="url" class="form-control" value="${node.url}" onchange="updateNode(${index}, 'url', this.value)"></td>
+        <td><input type="text" class="form-control" value="${node.versions?.nmos || ''}" readonly></td>
+        <td><input type="text" class="form-control" value="${node.versions?.connection || ''}" readonly></td>
+        <td>
+          <div class="d-flex gap-2 justify-content-center">
+            <button class="btn btn-sm btn-info" onclick="detectVersions(${index})">Detect</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteNode(${index})">Delete</button>
+          </div>
+        </td>
+      `;
+      table.appendChild(row);
+    });
   }
-});
+
+  function updateNode(index, key, value) {
+    nodes[index][key] = value;
+  }
+
+  function deleteNode(index) {
+    nodes.splice(index, 1);
+    renderTable();
+  }
+
+  function addNode() {
+    nodes.push({ name: '', url: '', versions: { nmos: '', connection: '' } });
+    renderTable();
+  }
+
+  function saveNodes() {
+    fetch('/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nodes)
+    })
+    .then(response => response.json())
+    .then(data => {
+      const msg = document.getElementById('message');
+      msg.innerText = data.message;
+      msg.style.color = data.status === 'success' ? 'green' : 'red';
+    });
+  }
+
+  function detectVersions(index) {
+    const node = nodes[index];
+    fetch('/detect_versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: node.url })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        nodes[index].versions = data.versions;
+        renderTable();
+      } else {
+        alert('Failed to detect versions: ' + data.message);
+      }
+    })
+    .catch(error => alert('Error detecting versions: ' + error));
+  }
+
+  window.onload = renderTable;
+
+  document.getElementById("refresh-settings-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const interval = parseInt(document.getElementById("refresh-interval").value);
+    if (interval >= 10) {
+      fetch("/update_refresh_interval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_interval: interval })
+      })
+      .then(res => res.json())
+      .then(data => alert(data.message || "Saved"))
+      .catch(() => alert("Failed to save refresh interval"));
+    } else {
+      alert("Minimum refresh interval is 10 seconds");
+    }
+  });
 </script>
 
 {% endblock %}

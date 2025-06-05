@@ -1,4 +1,15 @@
 import requests
+import json
+import os
+
+def load_nodes():
+    path = os.path.join(os.path.dirname(__file__), '..', 'data', 'nodes.json')
+    try:
+        with open(path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to load nodes.json: {e}")
+        return []
 
 def detect_nmos_and_connection_versions(node_url):
     versions = {
@@ -95,7 +106,8 @@ def get_resource_type(resource):
 
 def fetch_node_data(node):
     node_url = node['url'].rstrip('/')
-    nmos_version = node.get('versions', {}).get('nmos', 'v1.3')
+    versions = node.get('versions') or detect_nmos_and_connection_versions(node_url)
+    nmos_version = versions.get('nmos', 'v1.3')
 
     data = {
         'label': node.get('label', node.get('name', node_url)),
@@ -120,6 +132,8 @@ def fetch_node_data(node):
             receivers = [d for d in rcv_json if isinstance(d, dict)]
             for item in receivers:
                 item['node_name'] = node['name']
+                item['node_url'] = node_url
+                item['versions'] = versions
             data['receivers'] = receivers
         else:
             print(f"[WARNING] Unexpected receivers format from {node['name']}: {type(rcv_json)}")
@@ -135,6 +149,8 @@ def fetch_node_data(node):
             senders = [d for d in snd_json if isinstance(d, dict)]
             for item in senders:
                 item['node_name'] = node['name']
+                item['node_url'] = node_url
+                item['versions'] = versions
             data['sources'] = senders
         else:
             print(f"[WARNING] Unexpected senders format from {node['name']}: {type(snd_json)}")
@@ -142,3 +158,4 @@ def fetch_node_data(node):
         print(f"[ERROR] Failed to fetch senders from {node['name']}: {e}")
 
     return data
+

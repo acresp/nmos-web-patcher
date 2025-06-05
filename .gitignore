@@ -9,9 +9,11 @@ env/
 venv/
 .venv/
 
-# Node list config
+# Node list config and data cache
 nodes.json
 ._nodes.json
+data_cache.json
+._data_cache.json
 
 # OS/macOS/IDE
 .DS_Store

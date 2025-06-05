@@ -102,4 +102,38 @@
         renderTable();
     };
 </script>
+
+<hr class="my-4">
+<h4>Other Settings</h4>
+<form id="refresh-settings-form" class="mb-3">
+  <div class="form-group row align-items-center">
+    <label for="refresh-interval" class="col-sm-3 col-form-label">Cache Refresh Time (sec):</label>
+    <div class="col-sm-2">
+      <input type="number" class="form-control" id="refresh-interval" min="10" required value="{{ refresh_interval }}">
+    </div>
+    <div class="col-sm-2">
+      <button type="submit" class="btn btn-outline-success">Save</button>
+    </div>
+  </div>
+</form>
+
+<script>
+document.getElementById("refresh-settings-form").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const interval = parseInt(document.getElementById("refresh-interval").value);
+  if (interval >= 10) {
+    fetch("/update_refresh_interval", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_interval: interval })
+    })
+    .then(res => res.json())
+    .then(data => alert(data.message || "Saved"))
+    .catch(() => alert("Failed to save refresh interval"));
+  } else {
+    alert("Minimum refresh interval is 10 seconds");
+  }
+});
+</script>
+
 {% endblock %}

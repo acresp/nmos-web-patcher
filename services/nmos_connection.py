@@ -1,6 +1,6 @@
 import requests
-from .nmos_discovery import fetch_node_data, get_resource_type
 import concurrent.futures
+from .nmos_discovery import fetch_node_data, get_resource_type
 
 def load_receivers_and_sources(nodes):
     receivers, sources = [], []

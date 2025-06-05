@@ -2,7 +2,6 @@ import os
 import json
 import requests
 
-
 NODES_FILE = 'nodes.json'
 
 def load_nodes():

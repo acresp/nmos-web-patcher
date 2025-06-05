@@ -1,8 +1,20 @@
 from flask import Blueprint, request, jsonify
 from services.data_loader import load_nodes
 from services.nmos_connection import change_source, disconnect_receiver
+from services.cache import refresh_discovery
 
 api_bp = Blueprint('api', __name__)
+
+refresh_discovery()
+
+@api_bp.route('/refresh_cache')
+def api_refresh_cache():
+    try:
+        refresh_discovery()
+        return jsonify({"status": "success", "message": "Cache refreshed."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @api_bp.route('/change_source', methods=['POST'])
 def api_change_source():
@@ -31,21 +43,24 @@ def api_disconnect_receiver():
 
 @api_bp.route('/get_current_sender/<receiver_id>')
 def get_current_sender(receiver_id):
-    from services.data_loader import load_receivers_and_sources
     import requests
+    from services.cache import read_cache
 
-    nodes = load_nodes()
-    receivers, sources = load_receivers_and_sources(nodes)
+    cache = read_cache()
+    receivers = cache.get("receivers", [])
+    sources = cache.get("sources", [])
 
-    sources = [s for s in sources if isinstance(s, dict)]  # Sanity check
-
-    receiver = next((r for r in receivers if r['id'] == receiver_id), None)
+    receiver = next((r for r in receivers if r.get("id") == receiver_id), None)
     if not receiver:
-        print(f"[WARNING] Receiver with ID {receiver_id} not found")
+        print(f"[WARNING] Receiver with ID {receiver_id} not found in cache")
         return jsonify({"status": "error", "message": "Receiver not found"})
 
-    node_url = receiver['node_url']
+    node_url = receiver.get('node_url')
     version = receiver.get('versions', {}).get('connection', 'v1.1')
+
+    if not node_url:
+        print(f"[ERROR] Missing node_url for receiver {receiver_id}")
+        return jsonify({"status": "error", "message": "Missing node URL"}), 500
 
     try:
         url = f"{node_url}/connection/{version}/single/receivers/{receiver_id}/active/"

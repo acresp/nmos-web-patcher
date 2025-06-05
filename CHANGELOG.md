@@ -7,6 +7,15 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3] - 2025-06-05
+### Added
+- Caching system (data_cache.json) to avoid querying NMOS APIs constantly
+- Auto-refresh mechanism with configurable interval (default 10min)
+- Settings panel updated with “Other Settings” > “Cache Refresh Interval”
+
+### Changed
+- Active Sender check is called only on the necessary endpoint
+
 ## [1.2.1] – 2025-06-04
 ### Changed
 - Several bug fixes and UI improvements

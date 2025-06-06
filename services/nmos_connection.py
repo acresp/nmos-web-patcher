@@ -1,6 +1,8 @@
 import requests
 import concurrent.futures
 from .nmos_discovery import fetch_node_data, get_resource_type
+from routes.settings import load_settings
+from utils.sdp_filter import remove_secondary_streams
 
 def load_receivers_and_sources(nodes):
     receivers, sources = [], []
@@ -27,7 +29,7 @@ def load_receivers_and_sources(nodes):
                     })
                     sources.append(s)
             except Exception as e:
-                print(f"❌ Error fetching node {node['name']}: {e}")
+                print(f"Error fetching node {node['name']}: {e}")
     return receivers, sources
 
 def change_source(nodes, receiver_id, sender_id):
@@ -45,6 +47,13 @@ def change_source(nodes, receiver_id, sender_id):
     try:
         sdp_url = f"{sender['node_url']}connection/{sender['versions']['connection']}/single/senders/{sender_id}/transportfile/"
         sdp_data = requests.get(sdp_url, timeout=2).text
+
+        # Appliquer le filtre SDP si patch_secondary est désactivé
+        settings = load_settings()
+        if not settings.get("patch_secondary", False):
+            print("[INFO] Secondary streams will be removed from SDP")
+            sdp_data = remove_secondary_streams(sdp_data)
+
 
         patch_receiver = {
             "sender_id": sender_id,

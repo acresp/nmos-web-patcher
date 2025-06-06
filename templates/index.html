@@ -22,8 +22,17 @@
     <div class="text-center text-muted small mb-2">
         🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
     </div>
+    
+<!-- Selected Info -->
+<div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">
+    <div><strong>Selected Receiver:</strong> <span id="selected-receiver">None</span></div>
+    <div><strong>Current Sender:</strong><br><span id="current-sender">Unknown</span></div>
+    <div><strong>Selected Source:</strong> <span class="text-danger fw-bold" id="selected-source">None</span></div>
+</div>
 
     <div class="text-center" id="success-message"></div>
+
+
 </div>
 
 <!-- Main content: Destinations and Sources -->
@@ -77,13 +86,6 @@
             {% endfor %}
         </div>
     </div>
-</div>
-
-<!-- Selected Info -->
-<div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">
-    <div><strong>Selected Receiver:</strong> <span id="selected-receiver">None</span></div>
-    <div><strong>Current Sender:</strong> <span id="current-sender">Unknown</span></div>
-    <div><strong>Selected Source:</strong> <span class="text-danger fw-bold" id="selected-source">None</span></div>
 </div>
 
 <script>

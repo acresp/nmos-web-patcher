@@ -5,26 +5,23 @@ import json
 
 settings_bp = Blueprint('settings', __name__)
 
-@settings_bp.route('/settings', methods=['GET', 'POST'])
+@settings_bp.route('/settings', methods=['GET'])
 def settings():
-    if request.method == 'POST':
-        new_nodes = request.json
-        save_nodes(new_nodes)
-        return jsonify({"status": "success", "message": "Nodes updated"})
-
     try:
         with open("settings.json") as f:
-            refresh_interval = json.load(f).get("refresh_interval", 600)
-
+            settings = json.load(f)
+            refresh_interval = settings.get("refresh_interval", 600)
+            patch_secondary = settings.get("patch_secondary", False)
     except:
-        refresh_interval = 10
+        refresh_interval = 600
+        patch_secondary = False
 
     return render_template(
         'settings.html',
         nodes=load_nodes(),
-        refresh_interval=refresh_interval
+        refresh_interval=refresh_interval,
+        patch_secondary=patch_secondary
     )
-
 
 @settings_bp.route('/detect_versions', methods=['POST'])
 def detect_versions():
@@ -42,28 +39,38 @@ def refresh_cache():
     refresh_discovery()
     return jsonify({"status": "ok", "message": "Cache refreshed"})
 
-@settings_bp.route('/update_refresh_interval', methods=['POST'])
-def update_refresh_interval():
+@settings_bp.route('/update_settings', methods=['POST'])
+def update_settings():
     try:
         data = request.json
-        interval = int(data.get("refresh_interval", 600))
+
         with open("settings.json", "r") as f:
             settings_data = json.load(f)
-        settings_data["refresh_interval"] = interval
+
+        if "refresh_interval" in data:
+            settings_data["refresh_interval"] = int(data["refresh_interval"])
+        if "patch_secondary" in data:
+            settings_data["patch_secondary"] = bool(data["patch_secondary"])
+
         with open("settings.json", "w") as f:
             json.dump(settings_data, f, indent=2)
-        return jsonify({"status": "success", "message": "Refresh interval updated."})
-    except Exception as e:
-        print(f"[ERROR] Failed to save refresh interval: {e}")
-        return jsonify({"status": "error", "message": "Failed to save refresh interval"}), 500
 
-def load_refresh_interval():
-    try:
-        with open("settings.json") as f:
-            settings = json.load(f)
-            interval = int(settings.get("refresh_interval", 600))
-            print(f"[DEBUG] Loaded refresh interval from settings.json: {interval} seconds")
-            return interval
+        return jsonify({"status": "success", "message": "Settings updated."})
     except Exception as e:
-        print(f"[WARNING] Could not load refresh interval, using default 600. Error: {e}")
-        return 600
+        print(f"[ERROR] Failed to save settings: {e}")
+        return jsonify({"status": "error", "message": "Failed to save settings"}), 500
+
+def load_settings():
+    default_settings = {
+        "refresh_interval": 600,
+        "patch_secondary": True
+    }
+
+    try:
+        with open("settings.json", "r") as f:
+            file_settings = json.load(f)
+            merged = {**default_settings, **file_settings}
+            return merged
+    except Exception as e:
+        print(f"[WARNING] Could not load settings.json, using defaults. Error: {e}")
+        return default_settings

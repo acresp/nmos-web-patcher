@@ -65,7 +65,7 @@ Copyright © Arnaud Cresp
 ## One more thing...
 
 Wherever you're patching from — if this tool helped, say hi or open an issue. I'd love to hear where it's being used.
-Want to support me ? :)
+
 <p align="center">
 Want to support me ? :)<br>
   <a href="https://coff.ee/acresp" target="_blank">

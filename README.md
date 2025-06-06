@@ -1,7 +1,16 @@
 # NMOS Web Patcher
 
-A web-based patchbay interface for routing NMOS IS-05 flows between devices.  
-Developed to provide a user-friendly way to connect senders and receivers across IP-based broadcast infrastructures.
+> A minimal NMOS IS-05 patchbay — built for engineers who like to keep things clean and simple.
+
+<p align="center">
+  <img src="docs/nmos-web-patcher-v1.3.2.png" alt="NMOS Web Patcher Screenshot" width="800">
+</p>
+
+<p align="center">
+  <a href="https://coff.ee/acresp" target="_blank">
+    <img src="docs/bmc-button.png" alt="Buy Me a Coffee" width="200">
+  </a>
+</p>
 
 ---
 

@@ -1,15 +1,9 @@
 # NMOS Web Patcher
 
-> A minimal NMOS IS-05 patchbay — built for engineers who like to keep things clean and simple.
+A minimal NMOS IS-05 patchbay — built for engineers who like to keep things clean and simple.
 
 <p align="center">
   <img src="docs/nmos-web-patcher-v1.3.2.png" alt="NMOS Web Patcher Screenshot" width="800">
-</p>
-
-<p align="center">
-  <a href="https://coff.ee/acresp" target="_blank">
-    <img src="docs/bmc-button.png" alt="Buy Me a Coffee" width="200">
-  </a>
 </p>
 
 ---
@@ -70,4 +64,10 @@ Copyright © Arnaud Cresp
 
 ## One more thing...
 
-Wherever you're patching from — if this tool helped, say hi or open an issue. I'd love to hear where it's being used. :)
+Wherever you're patching from — if this tool helped, say hi or open an issue. I'd love to hear where it's being used.
+Want to support me ? :)
+<p align="center">
+  <a href="https://coff.ee/acresp" target="_blank">
+    <img src="docs/bmc-button.png" alt="Buy Me a Coffee" width="200">
+  </a>
+</p>

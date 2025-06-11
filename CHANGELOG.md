@@ -7,6 +7,33 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] – 2025-06-11
+
+### Added
+- **REST API** support with multiple endpoints:
+  - `GET /api/take`, `take_many`, `disconnect`, `status`, `list`, `ping`
+  - Logical routing based on `data_logical.json` mappings (or GUI tab in Settings)
+  - JSON responses include `patch_code`, `sender_id`, and `source_name` for automation
+  - Endpoint `/api/status` can return the logical source associated with current senders
+- New toggle setting: **Enable REST API** in `settings.json` (or Settings menu)
+- API documentation now available at [`docs/API.md`](docs/API.md)
+
+### Changed
+- Logical group management interface added to the Settings panel:
+  - Visual edit/delete of logical sources/receivers
+  - `data_logical.json` is now used for automated patching
+- Minor design improvements in Settings layout and controls
+
+### Fixed
+- Form submission bugs when saving new settings
+- Patch now validates presence of all IDs (sender/receiver) before applying
+- Better feedback on REST API errors (e.g., `403 REST API disabled`)
+
+### Breaking
+- `app.py` has been renamed to `nmos-web-patcher.py` — update your launch commands accordingly!
+
+---
+
 ## [1.3.2] – 2025-06-06
 
 ### Added

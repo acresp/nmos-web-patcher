@@ -14,6 +14,8 @@ nodes.json
 ._nodes.json
 data_cache.json
 ._data_cache.json
+data_logical.json
+._data_logical.json
 
 # OS/macOS/IDE
 .DS_Store

@@ -20,12 +20,27 @@
         #success-message { margin-top: 20px; color: green; font-weight: bold; }
         @keyframes blink { 50% { background-color: red; color: white; } }
         .blink { animation: blink 1s step-start 0s infinite; }
+        td.id-cell {
+        min-width: 80px;
+         text-align: center;
+         font-family: monospace;
+        }
+        td.select-cell {
+         min-width: 250px;
+        }
+        .form-control-sm, .form-select-sm {
+         width: 100%;
+        }
+        td.action-cell {
+         min-width: 160px;
+        }
     </style>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="container">
+    <div class="container-fluid px-5">
         {% block content %}{% endblock %}
     </div>
 <footer class="mt-5 pt-3 border-top small text-muted">

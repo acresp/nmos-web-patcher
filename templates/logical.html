@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}NMOS Web Patcher – Logical Groups{% endblock %}
+
+{% block content %}
+<div class="sticky-top bg-white py-3 shadow-sm z-top border-bottom mb-4">
+  <div class="text-center mb-3">
+    <h1 class="mb-0">NMOS Web Patcher</h1>
+    <div class="text-muted fs-4">Logical Groups</div>
+  </div>
+  <div class="text-center mb-3">
+    <a href="{{ url_for('settings.settings') }}" class="btn btn-outline-secondary btn-lg px-4">Back</a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center bg-light">
+    <strong class="text-dark">Create a logical group</strong>
+    <div>
+      <button class="btn btn-outline-success btn-sm" type="button" onclick="document.getElementById('logical-form').submit()">Add Group</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="post" action="/settings/logical_ids" id="logical-form">
+      <div class="row g-3 align-items-center mb-3">
+        <div class="col-md-4">
+          <label class="form-label">Label</label>
+          <input type="text" class="form-control" name="logical_name" placeholder="e.g. CAM1" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Type</label>
+          <select class="form-select" name="entry_type" id="entry-type-select">
+            <option value="sources">Source</option>
+            <option value="receivers">Receiver</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-1">
+        <div class="col-md-4">
+          <label class="form-label">Video</label>
+          <select class="form-select" name="video" id="video-select" style="max-width: 250px;">
+            <option value="">-- None --</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Audio</label>
+          <select class="form-select" name="audio" id="audio-select" style="max-width: 250px;">
+            <option value="">-- None --</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Data</label>
+          <select class="form-select" name="data" id="data-select" style="max-width: 250px;">
+            <option value="">-- None --</option>
+          </select>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-5 shadow-sm">
+  <div class="card-header bg-light">
+    <strong class="text-dark">Defined groups</strong>
+  </div>
+  <div class="card-body">
+    {% for entry_type, entry_label, items, resources in [
+        ('sources', 'Senders', logical_ids.sources, senders),
+        ('receivers', 'Receivers', logical_ids.receivers, receivers)
+    ] %}
+      {% if items %}
+        <h5 class="{{ 'text-primary' if entry_type == 'sources' else 'text-success' }} mt-4">{{ entry_label }}</h5>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle small">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Label</th>
+                <th>Video</th>
+                <th>Audio</th>
+                <th>Data</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+  {% for name, entries in items.items() %}
+  <tr id="row-{{ entry_type }}-{{ name }}">
+    <td class="id-cell" data-id="{{ entries.id }}">{{ entries.id }}</td>
+    <td class="name-cell">{{ name }}</td>
+    <td class="video-cell select-cell" data-id="{{ entries.video or '' }}">{{ entries.video or '' }}</td>
+    <td class="audio-cell select-cell" data-id="{{ entries.audio or '' }}">{{ entries.audio or '' }}</td>
+    <td class="data-cell select-cell" data-id="{{ entries.data or '' }}">{{ entries.data or '' }}</td>
+    <td class="action-cell">
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                onclick="editRow('{{ entry_type }}', '{{ name }}')" style="margin-right: 8px;">Edit</button>
+
+        <form method="post"
+              action="/settings/delete_logical_id"
+              onsubmit="return confirm('Delete group {{ name }}?');"
+              class="m-0">
+          <input type="hidden" name="logical_name" value="{{ name }}">
+          <input type="hidden" name="entry_type" value="{{ entry_type }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
+
+          </table>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+const senders = {{ senders | tojson | safe }};
+const receivers = {{ receivers | tojson | safe }};
+
+function editRow(type, name) {
+  const row = document.getElementById(`row-${type}-${name}`);
+  const formId = `form-${type}-${name}`;
+  const resources = (type === 'sources') ? senders : receivers;
+
+  const current = {
+    id:     row.querySelector('.id-cell').dataset.id,
+    name:   row.querySelector('.name-cell').innerText.trim(),
+    video:  row.querySelector('.video-cell').dataset.id,
+    audio:  row.querySelector('.audio-cell').dataset.id,
+    data:   row.querySelector('.data-cell').dataset.id
+  };
+
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = '/settings/update_logical_id';
+  form.id = formId;
+  document.body.appendChild(form);
+
+  const buildSelect = (field, selected) => {
+    const list = resources.filter(item => {
+      const essence = (item.essence_type || "").toLowerCase();
+      if (field === "video") return essence.includes("video");
+      if (field === "audio") return essence.includes("audio");
+      if (field === "data") return essence.includes("ancillary") || essence.includes("data");
+    });
+
+    const opts = ['<option value="">-- None --</option>'];
+    list.forEach(item => {
+      const sel = item.id === selected ? 'selected' : '';
+      const label = item.label || item.id;
+      opts.push(`<option value="${item.id}" ${sel}>${label} (${item.id.slice(0,6)})</option>`);
+    });
+
+    return `<select name="${field}" class="form-select form-select-sm" form="${formId}">${opts.join("")}</select>`;
+  };
+
+  row.querySelector('.id-cell').innerHTML = `<input type="number" name="logical_id" class="form-control form-control-sm" value="${current.id}" form="${formId}">`;
+  row.querySelector('.name-cell').innerHTML = `<input type="text" name="logical_name" class="form-control form-control-sm" value="${current.name}" form="${formId}">`;
+  row.querySelector('.video-cell').innerHTML = buildSelect("video", current.video);
+  row.querySelector('.audio-cell').innerHTML = buildSelect("audio", current.audio);
+  row.querySelector('.data-cell').innerHTML = buildSelect("data", current.data);
+
+  row.querySelector('.action-cell').innerHTML = `
+    <div class="d-flex gap-1 flex-wrap">
+      <input type="hidden" name="original_name" value="${current.name}" form="${formId}">
+      <input type="hidden" name="entry_type" value="${type}" form="${formId}">
+      <button type="submit" class="btn btn-sm btn-outline-success" style="margin-right: 8px;" form="${formId}">Save</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">Cancel</button>
+    </div>
+  `;
+}
+
+function populateEssenceDropdowns() {
+  const listType = document.getElementById("entry-type-select").value;
+  const list = (listType === "sources") ? senders : receivers;
+
+  const selects = {
+    video: document.getElementById("video-select"),
+    audio: document.getElementById("audio-select"),
+    data: document.getElementById("data-select")
+  };
+
+  Object.values(selects).forEach(sel => {
+    while (sel.options.length > 1) sel.remove(1);
+  });
+
+  list.forEach(item => {
+    const essence = (item.essence_type || "").toLowerCase();
+    const label = item.label || item.id;
+    const value = item.id;
+    const opt = new Option(`${label} (${value.slice(0, 6)})`, value);
+
+    if (essence.includes("video")) selects.video.add(opt.cloneNode(true));
+    if (essence.includes("audio")) selects.audio.add(opt.cloneNode(true));
+    if (essence.includes("ancillary") || essence.includes("data")) selects.data.add(opt.cloneNode(true));
+  });
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("entry-type-select").addEventListener("change", populateEssenceDropdowns);
+  populateEssenceDropdowns();
+});
+</script>
+{% endblock %}

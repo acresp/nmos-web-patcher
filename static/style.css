@@ -55,3 +55,7 @@ button[data-label] {
   background-color: #f8d7da;
   color: #721c24;
 }
+
+.table th {
+  font-weight: normal;
+}

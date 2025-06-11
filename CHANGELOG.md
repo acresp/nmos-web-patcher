@@ -36,7 +36,7 @@ and uses [Semantic Versioning](https://semver.org/).
 ## [1.3] - 2025-06-05
 ### Added
 - Caching system (data_cache.json) to avoid querying NMOS APIs constantly
-- Auto-refresh mechanism with configurable interval (default 10min)
+- Auto-refresh mechanism with configurable interval (default 300s)
 - Settings panel updated with “Other Settings” > “Cache Refresh Interval”
 
 ### Changed

@@ -1,4 +1,5 @@
 {
   "refresh_interval": 300,
-  "patch_secondary": false
+  "patch_secondary": false,
+  "enable_restapi": true
 }

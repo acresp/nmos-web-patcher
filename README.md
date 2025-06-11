@@ -1,6 +1,6 @@
 # NMOS Web Patcher
 
-A minimal NMOS IS-05 patchbay — built for engineers who like to keep things clean and simple.
+A minimal NMOS IS04/IS-05 patchbay — built for engineers who like to keep things clean and simple.
 
 <p align="center">
   <img src="docs/nmos-web-patcher-v1.3.2.png" alt="NMOS Web Patcher Screenshot" width="800">
@@ -10,13 +10,14 @@ A minimal NMOS IS-05 patchbay — built for engineers who like to keep things cl
 
 ## Features
 
-- Auto-detection of supported NMOS and IS-05 versions per node
+- Auto-detection of supported NMOS IS-04 and IS-05 versions per node
 - Visual routing interface (senders ↔ receivers)
 - Supports IS-05 `activate_immediate` flow switching
 - Color-coded flow types (video, audio, ancillary, metadata)
 - Lightweight node manager: add, edit, delete, version detection
 - Compatible with devices from Imagine, Ross, Blackmagic, Phabrix, and others
 - Modular Flask-based architecture for maintainability and extensibility
+- REST API available for automation and external integrations ([API Documentation](docs/API.md))
 
 ---
 
@@ -25,7 +26,7 @@ A minimal NMOS IS-05 patchbay — built for engineers who like to keep things cl
 ### Requirements
 
 - Python 3.9 or newer
-- At least one NMOS IS-05 compatible device
+- At least one NMOS IS-04/IS-05 compatible device
 
 ### Setup
 
@@ -33,7 +34,7 @@ A minimal NMOS IS-05 patchbay — built for engineers who like to keep things cl
 git clone https://github.com/acresp/nmos-web-patcher.git
 cd nmos-web-patcher
 pip install -r requirements.txt
-python app.py
+python nmos-web-patcher.py
 ```
 Then visit http://localhost:5000 in your browser and add your first NMOS node in the Settings page :)
 
@@ -52,10 +53,8 @@ The application has been tested and is able to patch signals with the following 
 
 ## ToDo
 
-* Bulk patching
-* Better check for the essence type (color coding/cosmetic...)
-* Better UI with nodes groups
-* Simple REST API to make patches like http://localhost:5000/patch?src=1&dest=1 for easier integration in automations softwares
+* Bugs fixes
+* Other protocols
 * Sky is the limit...
 
 ## License

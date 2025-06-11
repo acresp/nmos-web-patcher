@@ -48,7 +48,6 @@ def change_source(nodes, receiver_id, sender_id):
         sdp_url = f"{sender['node_url']}connection/{sender['versions']['connection']}/single/senders/{sender_id}/transportfile/"
         sdp_data = requests.get(sdp_url, timeout=2).text
 
-        # Appliquer le filtre SDP si patch_secondary est désactivé
         settings = load_settings()
         if not settings.get("patch_secondary", False):
             print("[INFO] Secondary streams will be removed from SDP")

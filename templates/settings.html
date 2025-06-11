@@ -3,18 +3,17 @@
 
 {% block content %}
 
-<!-- Sticky Header -->
 <div class="sticky-top bg-white py-3 shadow-sm z-top border-bottom">
   <div class="text-center mb-3">
     <h1 class="mb-0">NMOS Web Patcher</h1>
     <div class="text-muted" style="font-size: 1.25rem;">Settings</div>
   </div>
   <div class="text-center mb-2">
-    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg px-5">Back</a>
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg px-4">Back</a>
+    <a href="{{ url_for('settings.logical_page') }}" class="btn btn-outline-info btn-lg px-4 ms-2">Logical Groups</a>
   </div>
 </div>
 
-<!-- Nodes Table -->
 <div class="card my-4">
   <div class="card-header d-flex justify-content-between align-items-center bg-light">
     <strong>NMOS Nodes</strong>
@@ -29,7 +28,7 @@
         <tr>
           <th>Label</th>
           <th>URL</th>
-          <th>NMOS Version</th>
+          <th>Node Version</th>
           <th>Connection Version</th>
           <th>Actions</th>
         </tr>
@@ -41,42 +40,66 @@
   </div>
 </div>
 
-<!-- Other Settings -->
 <div class="card mb-5">
   <div class="card-header d-flex justify-content-between align-items-center bg-light">
     <strong>Other Settings</strong>
     <button type="submit" form="refresh-settings-form" class="btn btn-outline-success btn-sm">Save</button>
   </div>
   <div class="card-body">
-    <form id="refresh-settings-form" class="row g-3" method="post" action="">
-      <div class="col-md-6 d-flex align-items-center">
-        <label for="refresh-interval" class="form-label me-2">Cache Refresh Time (sec):</label>
-        <input
-          type="number"
-          class="form-control"
-          id="refresh-interval"
-          name="refresh_interval"
-          min="10"
-          required
-          value="{{ refresh_interval }}">
-      </div>
-
-      <div class="col-12">
-        <div class="form-check mt-2">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="patch-secondary"
-            name="patch_secondary"
-            {% if patch_secondary %}checked{% endif %}>
-          <label class="form-check-label" for="patch-secondary">
-            Patch Secondary Stream
-          </label>
-        </div>
-      </div>
+    <form id="refresh-settings-form" method="post" action="">
+      <table class="table table-borderless align-middle mb-0">
+        <tbody>
+          <tr>
+            <th style="width: 280px;">Cache Refresh Time (sec):</th>
+            <td>
+              <input
+                type="number"
+                class="form-control w-auto"
+                id="refresh-interval"
+                name="refresh_interval"
+                min="10"
+                required
+                value="{{ refresh_interval }}">
+            </td>
+          </tr>
+          <tr>
+            <th>Patch Secondary Stream</th>
+            <td>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="patch-secondary"
+                  name="patch_secondary"
+                  {% if patch_secondary %}checked{% endif %}>
+                <label class="form-check-label" for="patch-secondary">
+                  Enable
+                </label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <th>Enable REST API</th>
+            <td>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="enable-restapi"
+                  name="enable_restapi"
+                  {% if enable_restapi %}checked{% endif %}>
+                <label class="form-check-label" for="enable-restapi">
+                  Enable
+                </label>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </form>
   </div>
 </div>
+
 
 <script>
   let nodes = {{ nodes | tojson }};
@@ -155,6 +178,7 @@
 
     const interval = parseInt(document.getElementById("refresh-interval").value);
     const patchSecondary = document.getElementById("patch-secondary").checked;
+    const enableRestApi = document.getElementById("enable-restapi").checked;
 
     if (interval >= 10) {
       fetch("/update_settings", {
@@ -162,7 +186,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           refresh_interval: interval,
-          patch_secondary: patchSecondary
+          patch_secondary: patchSecondary,
+          enable_restapi: enableRestApi,
         })
       })
       .then(res => res.json())

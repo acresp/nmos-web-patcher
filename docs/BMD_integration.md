@@ -21,9 +21,9 @@ The emulator responds to standard Videohub protocol commands. Here’s a basic s
   <img src="nmos_companion.png" alt="NMOS Web Patcher in Companion" width="800">
 </p>
 
-> * Connection to the NMOS Web Patcher’s emulator
-> * Button triggering routing change (e.g. Output 2 ← Input 1)
-> * Feedback showing current route
+* Connection to the NMOS Web Patcher’s emulator
+* Button triggering routing change (e.g. Output 2 ← Input 1)
+* Feedback showing current route
 
 Example for the Receivers, you can see that it's reflecting the logical groups defined in the database.
 

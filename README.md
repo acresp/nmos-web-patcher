@@ -35,7 +35,7 @@ A minimal NMOS IS04/IS-05 patchbay — built for engineers who like to keep thin
 git clone https://github.com/acresp/nmos-web-patcher.git
 cd nmos-web-patcher
 pip install -r requirements.txt
-python nmos-web-patcher.py
+python3 nmos-web-patcher.py
 ```
 Then visit http://localhost:5000 in your browser and add your first NMOS node in the Settings page :)
 

@@ -1,8 +1,13 @@
+# /protocols/restapi.py
+# by Arnaud Cresp - 2025
+
 from flask import Blueprint, jsonify, request
 from services.logical import get_logical_pair
 from services.nmos_connection import change_source
 import json
 from functools import wraps
+import asyncio
+import builtins
 
 restapi_bp = Blueprint("restapi", __name__)
 
@@ -27,13 +32,6 @@ def rest_api_enabled_only():
         return wrapper
     return decorator
 
-# API Test Function
-@restapi_bp.route("/api/ping", methods=["GET"])
-@rest_api_enabled_only()
-def ping():
-    return jsonify({"status": "ok"})
-
-# API Take Function
 @restapi_bp.route("/api/take", methods=["GET"])
 @rest_api_enabled_only()
 def take_logical():
@@ -47,17 +45,18 @@ def take_logical():
         return jsonify({"status": "error", "message": "Missing src or dest"}), 400
 
     src, dest = get_logical_pair(src_id, dest_id)
-
     if not src or not dest:
         return jsonify({"status": "error", "message": "Invalid src or dest ID"}), 404
 
     logical = load_logical_ids()
     nodes = load_nodes()
 
-    src_name = next((name for name, val in logical.get("sources", {}).items() if str(val.get("id")) == str(src_id)), None)
-    dest_name = next((name for name, val in logical.get("receivers", {}).items() if str(val.get("id")) == str(dest_id)), None)
+    # Find logical names
+    source_name = next((name for name, val in logical.get("sources", {}).items() if val.get("id") == int(src_id)), None)
+    destination_name = next((name for name, val in logical.get("receivers", {}).items() if val.get("id") == int(dest_id)), None)
 
-    result = {}
+    patched = {}
+
     for essence in ["video", "audio", "data"]:
         sender = src.get(essence)
         receiver = dest.get(essence)
@@ -65,41 +64,64 @@ def take_logical():
         if sender and receiver:
             try:
                 patch_result = change_source(nodes, receiver, sender)
-                result[essence] = {
+                patched[essence] = {
                     "status": patch_result.get("status"),
-                    "receiver": receiver,
                     "sender": sender,
+                    "receiver": receiver,
                     "message": patch_result.get("message", "")
                 }
             except Exception as e:
-                result[essence] = {
+                patched[essence] = {
                     "status": "error",
-                    "receiver": receiver,
                     "sender": sender,
+                    "receiver": receiver,
                     "message": str(e)
                 }
         else:
-            result[essence] = {
+            patched[essence] = {
                 "status": "skipped",
                 "reason": "missing sender or receiver"
             }
 
+    # PatchCode Generation
     def essence_status_bit(info):
         return "1" if info.get("status") in ["success", "patched"] else "0"
 
     patch_code = (
-        essence_status_bit(result.get("video", {})) +
-        essence_status_bit(result.get("audio", {})) +
-        essence_status_bit(result.get("data", {}))
+        essence_status_bit(patched.get("video", {})) +
+        essence_status_bit(patched.get("audio", {})) +
+        essence_status_bit(patched.get("data", {}))
     )
+
+    # Update BMD Ethernet Protocol status
+    try:
+        emulator = getattr(builtins, "emulator_instance", None)
+        if emulator:
+            sender_id = int(src_id)
+            receiver_id = int(dest_id)
+            loop = getattr(builtins, "main_event_loop", None)
+            if loop:
+                future = asyncio.run_coroutine_threadsafe(
+                    emulator.set_routing(sender_id, receiver_id, origin="REST", force_broadcast=True),
+                    loop
+                )
+                future.result()
+                print(f"[RESTAPI] Notified BMD Emulator: {receiver_id} ← {sender_id}")
+            else:
+                print("[RESTAPI] No asyncio loop available to notify emulator.")
+        else:
+            print("[RESTAPI] Emulator instance not set")
+    except Exception as e:
+        print(f"[RESTAPI] Failed to notify BMD Emulator: {e}")
 
     return jsonify({
         "status": "ok",
-        "source_name": src_name,
-        "destination_name": dest_name,
+        "source_name": source_name or str(src_id),
+        "destination_name": destination_name or str(dest_id),
         "patch_code": patch_code,
-        "patched": result
+        "patched": patched
     })
+
 
 # API List Function
 @restapi_bp.route("/api/list", methods=["GET"])

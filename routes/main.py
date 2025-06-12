@@ -1,3 +1,6 @@
+# /routes/main.py
+# by Arnaud Cresp - 2025
+
 from flask import Blueprint, render_template
 from services.cache import read_cache
 import re

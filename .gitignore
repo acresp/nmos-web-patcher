@@ -24,6 +24,7 @@ Thumbs.db
 .vscode/
 .idea/
 ._*
+.smbdelete*
 
 # Logs / backups
 *.log

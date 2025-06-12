@@ -1,3 +1,6 @@
+# /services/nmos_discovery.py
+# by Arnaud Cresp - 2025
+
 import requests
 import json
 import os

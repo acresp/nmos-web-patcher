@@ -1,3 +1,6 @@
+# /services/cache.py
+# by Arnaud Cresp - 2025
+
 import os
 import json
 import threading

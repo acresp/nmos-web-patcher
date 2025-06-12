@@ -50,7 +50,7 @@
       <table class="table table-borderless align-middle mb-0">
         <tbody>
           <tr>
-            <th style="width: 280px;">Cache Refresh Time (sec):</th>
+            <th style="width: 400px;">Cache Refresh Time (sec):</th>
             <td>
               <input
                 type="number"
@@ -94,6 +94,22 @@
               </div>
             </td>
           </tr>
+          <tr>
+  <th>Enable Blackmagic Ethernet Protocol</th>
+  <td>
+    <div class="form-check">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="enable-bmd-emulator"
+        name="enable_bmd_emulator"
+        {% if enable_bmd_emulator %}checked{% endif %}>
+      <label class="form-check-label" for="enable-bmd-emulator">
+        Enable
+      </label>
+    </div>
+  </td>
+</tr>
         </tbody>
       </table>
     </form>
@@ -179,6 +195,7 @@
     const interval = parseInt(document.getElementById("refresh-interval").value);
     const patchSecondary = document.getElementById("patch-secondary").checked;
     const enableRestApi = document.getElementById("enable-restapi").checked;
+    const enableBmdEmulator = document.getElementById("enable-bmd-emulator").checked;
 
     if (interval >= 10) {
       fetch("/update_settings", {
@@ -188,6 +205,7 @@
           refresh_interval: interval,
           patch_secondary: patchSecondary,
           enable_restapi: enableRestApi,
+          enable_bmd_emulator: enableBmdEmulator,
         })
       })
       .then(res => res.json())

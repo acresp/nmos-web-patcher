@@ -1,3 +1,6 @@
+# /services/nmos_connection.py
+# by Arnaud Cresp - 2025
+
 import requests
 import concurrent.futures
 from .nmos_discovery import fetch_node_data, get_resource_type

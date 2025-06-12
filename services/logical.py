@@ -1,3 +1,6 @@
+# /services/logical.py
+# by Arnaud Cresp - 2025
+
 import json
 from pathlib import Path
 

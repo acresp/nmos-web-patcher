@@ -1,3 +1,6 @@
+# /utils/sdp_filter.py
+# by Arnaud Cresp - 2025
+
 def remove_secondary_streams(sdp: str) -> str:
     """
     Delete secondary streams in SDP 'a=group:DUP'.

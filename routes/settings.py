@@ -1,9 +1,14 @@
+# /routes/settings.py
+# by Arnaud Cresp - 2025
+
 from flask import Blueprint, request, jsonify, render_template, redirect
 from services.data_loader import load_nodes
 from services.nmos_discovery import detect_nmos_and_connection_versions
 from services.cache import read_cache as load_cache
 from services.logical import load_logical_ids, save_logical_ids
 import json
+import asyncio
+import builtins
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -13,7 +18,7 @@ def settings():
     refresh_interval = settings_data.get("refresh_interval")
     patch_secondary = settings_data.get("patch_secondary")
     enable_restapi = settings_data.get("enable_restapi")
-
+    enable_bmd_emulator = settings_data.get("enable_bmd_emulator")
 
     cache = load_cache()
     senders = cache.get("sources", [])
@@ -25,11 +30,10 @@ def settings():
         refresh_interval=refresh_interval,
         patch_secondary=patch_secondary,
         enable_restapi=enable_restapi,
+        enable_bmd_emulator=enable_bmd_emulator,
         senders=senders,
         receivers=receivers
     )
-
-
 
 @settings_bp.route('/detect_versions', methods=['POST'])
 def detect_versions():
@@ -54,22 +58,40 @@ def update_settings():
         with open("settings.json", "r") as f:
             settings_data = json.load(f)
 
+        old_bmd = settings_data.get("enable_bmd_emulator", False)
+
         settings_data["refresh_interval"] = int(data.get("refresh_interval", 600))
         settings_data["patch_secondary"] = bool(data.get("patch_secondary", False))
         settings_data["enable_restapi"] = bool(data.get("enable_restapi", False))
+        settings_data["enable_bmd_emulator"] = bool(data.get("enable_bmd_emulator", False))
+
+        new_bmd = settings_data["enable_bmd_emulator"]
 
         print("[DEBUG] Writing updated settings:", settings_data)
 
         with open("settings.json", "w") as f:
             json.dump(settings_data, f, indent=2)
 
+        if old_bmd != new_bmd:
+            loop = getattr(builtins, "main_event_loop", None)
+            if loop:
+                if new_bmd:
+                    from protocols.bmdvideohub import VideohubEmulator
+                    emulator = VideohubEmulator()
+                    builtins.emulator_instance = emulator
+                    asyncio.run_coroutine_threadsafe(emulator.start(), loop)
+                    print("[SETTINGS] BMD Emulator started dynamically")
+                else:
+                    emulator = getattr(builtins, "emulator_instance", None)
+                    if emulator:
+                        asyncio.run_coroutine_threadsafe(emulator.stop(), loop)
+                        builtins.emulator_instance = None
+                        print("[SETTINGS] BMD Emulator stopped dynamically")
+
         return jsonify({"status": "success", "message": "Settings updated."})
     except Exception as e:
         print(f"[ERROR] Failed to save settings: {e}")
         return jsonify({"status": "error", "message": "Failed to save settings"}), 500
-
-
-
 
 @settings_bp.route('/logical', methods=['GET'], endpoint='logical_page')
 def logical_page():
@@ -124,6 +146,17 @@ def add_logical_id():
         logicals[entry_type][logical_name]["data"] = data
 
     save_logical_ids(logicals)
+
+    emulator = getattr(builtins, "emulator_instance", None)
+    loop = getattr(builtins, "main_event_loop", None)
+
+    if emulator and loop:
+        try:
+            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
+            print("[SETTINGS] BMD Emulator reloaded after logical update.")
+        except Exception as e:
+            print(f"[SETTINGS] Failed to notify emulator: {e}")
+
     return redirect("/logical")
 
 @settings_bp.route('/settings/delete_logical_id', methods=['POST'])
@@ -137,6 +170,16 @@ def delete_logical_id():
         del logicals[entry_type][logical_name]
         save_logical_ids(logicals)
         print(f"[INFO] Deleted logical group: {entry_type} → {logical_name}")
+
+    emulator = getattr(builtins, "emulator_instance", None)
+    loop = getattr(builtins, "main_event_loop", None)
+
+    if emulator and loop:
+        try:
+            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
+            print("[SETTINGS] BMD Emulator reloaded after logical update.")
+        except Exception as e:
+            print(f"[SETTINGS] Failed to notify emulator: {e}")
 
     return redirect("/logical")
 
@@ -167,13 +210,25 @@ def update_logical_id():
     logicals[entry_type][logical_name]["data"]  = data
 
     save_logical_ids(logicals)
+
+    emulator = getattr(builtins, "emulator_instance", None)
+    loop = getattr(builtins, "main_event_loop", None)
+
+    if emulator and loop:
+        try:
+            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
+            print("[SETTINGS] BMD Emulator reloaded after logical update.")
+        except Exception as e:
+            print(f"[SETTINGS] Failed to notify emulator: {e}")
+
     return redirect("/logical")
 
 def load_settings():
     default_settings = {
         "refresh_interval": 300,
         "patch_secondary": True,
-        "enable_restapi": True
+        "enable_restapi": True,
+        "enable_bmd_emulator": False
     }
 
     try:

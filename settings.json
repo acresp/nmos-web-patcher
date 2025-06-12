@@ -1,5 +1,6 @@
 {
   "refresh_interval": 300,
   "patch_secondary": false,
-  "enable_restapi": true
+  "enable_restapi": true,
+  "enable_bmd_emulator": true
 }

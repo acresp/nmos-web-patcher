@@ -7,6 +7,31 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5] – 2025-06-12
+
+### Added
+
+- **Blackmagic Videohub Ethernet Protocol Support**
+  - Added a TCP server emulator for Videohub Protocol v2.3 - can be enabled/disabled in Settings page.
+  - Parses and handles input/output routing commands from external BMD controllers
+  - Automatically syncs with defined logical groups
+  - Triggers real NMOS patches via `emit_patch()` upon incoming routing changes
+  - Automatic reload and broadcast when logical mappings change
+  - At the moment : tested with Bitfocus Companion & Softron OnTheAir Switch 
+
+- **REST ↔︎ BMD Integration**
+  - REST API routes notify the BMD emulator to reflect routing changes in both control layers
+
+---
+
+### Structural Changes
+
+- **Multithreading and Async Task Handling**
+  - Isolated thread-safe Flask launch and async BMD task management
+  - Runs Flask server and BMD protocol server in parallel using `asyncio.create_task()` and `asyncio.to_thread()`
+
+---
+
 ## [1.4.0] – 2025-06-11
 
 ### Added

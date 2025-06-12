@@ -18,7 +18,7 @@ The built-in emulator allows external systems — such as **Bitfocus Companion**
 The emulator responds to standard Videohub protocol commands. Here’s a basic setup in **Bitfocus Companion**:
 
 <p align="center">
-  <img src="docs/nmos_companion.png" alt="NMOS Web Patcher in Companion" width="800">
+  <img src="nmos_companion.png" alt="NMOS Web Patcher in Companion" width="800">
 </p>
 
 > * Connection to the NMOS Web Patcher’s emulator
@@ -28,7 +28,7 @@ The emulator responds to standard Videohub protocol commands. Here’s a basic s
 Example for the Receivers, you can see that it's reflecting the logical groups defined in the database.
 
 <p align="center">
-  <img src="docs/nmos_companion_logical.png" alt="NMOS Web Patcher in Companion" width="800">
+  <img src="nmos_companion_logical.png" alt="NMOS Web Patcher in Companion" width="800">
 </p>
 
 ---

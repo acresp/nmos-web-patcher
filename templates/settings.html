@@ -156,7 +156,7 @@
   }
 
   function saveNodes() {
-    fetch('/settings', {
+    fetch('/settings/save_nodes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nodes)

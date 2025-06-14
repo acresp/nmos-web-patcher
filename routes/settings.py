@@ -2,7 +2,7 @@
 # by Arnaud Cresp - 2025
 
 from flask import Blueprint, request, jsonify, render_template, redirect
-from services.data_loader import load_nodes
+from services.data_loader import load_nodes, save_nodes
 from services.nmos_discovery import detect_nmos_and_connection_versions
 from services.cache import read_cache as load_cache
 from services.logical import load_logical_ids, save_logical_ids
@@ -34,6 +34,22 @@ def settings():
         senders=senders,
         receivers=receivers
     )
+
+@settings_bp.route('/settings/save_nodes', methods=['POST'])
+def save_nodes_route():
+    try:
+        nodes = request.get_json()
+        save_nodes(nodes)
+        print(f"[SETTINGS] Saved {len(nodes)} nodes to nodes.json")
+
+        from services.cache import refresh_discovery
+        refresh_discovery()
+        print("[SETTINGS] Discovery cache refreshed after node save")
+
+        return jsonify({"status": "success", "message": "Nodes saved and cache refreshed."})
+    except Exception as e:
+        print(f"[ERROR] Failed to save nodes: {e}")
+        return jsonify({"status": "error", "message": "Failed to save nodes"}), 500
 
 @settings_bp.route('/detect_versions', methods=['POST'])
 def detect_versions():

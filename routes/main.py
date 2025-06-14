@@ -3,11 +3,10 @@
 
 from flask import Blueprint, render_template
 from services.cache import read_cache
+from services.data_loader import load_nodes
 import re
 
 main_bp = Blueprint('main', __name__)
-
-import re
 
 def extract_sort_key(item):
     label = item.get("label", "").lower()
@@ -35,19 +34,17 @@ def extract_sort_key(item):
 def index():
     cache = read_cache()
 
-    receivers = cache['receivers']
-    sources = cache['sources']
-
     receivers = sorted(cache['receivers'], key=extract_sort_key)
-    sources = sorted(cache['sources'], key=extract_sort_key)
+    sources   = sorted(cache['sources'], key=extract_sort_key)
 
+    nodes = load_nodes()
 
     return render_template(
         'index.html',
         receivers=receivers,
         sources=sources,
-        nodes=cache['nodes'],
-        node_count=len(cache['nodes']),
+        nodes=nodes,
+        node_count=len(nodes),
         receiver_count=len(receivers),
         source_count=len(sources),
         selected_receiver_id=None,

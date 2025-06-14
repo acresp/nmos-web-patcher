@@ -20,9 +20,8 @@ def save_nodes(nodes):
 from services.nmos_discovery import fetch_node_data, get_resource_type
 
 def load_receivers_and_sources(nodes):
-
     all_receivers = []
-    all_senders = []
+    all_sources = []
 
     for node in nodes:
         try:
@@ -69,12 +68,12 @@ def load_receivers_and_sources(nodes):
                     if isinstance(snd, dict):
                         snd['node_name'] = name
                         snd['node_url'] = base_url
-                        all_senders.append(snd)
+                        all_sources.append(snd)
             except Exception as e:
                 print(f"[ERROR] Failed to fetch senders from {name}: {e}")
 
         except Exception as e:
             print(f"[ERROR] General failure on node {name}: {e}")
 
-    print(f"[DEBUG] Done loading. Found {len(all_receivers)} receivers and {len(all_senders)} sources")
-    return all_receivers, all_senders
+    print(f"[DEBUG] Done loading. Found {len(all_receivers)} receivers and {len(all_sources)} sources")
+    return all_receivers, all_sources

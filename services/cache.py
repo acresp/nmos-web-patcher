@@ -27,7 +27,6 @@ def refresh_discovery():
         all_sources.extend(node_data.get("sources", []))
 
     cache = {
-        "nodes": nodes,
         "receivers": all_receivers,
         "sources": all_sources
     }
@@ -62,7 +61,7 @@ def start_auto_refresh():
     def loop():
         while True:
             refresh_discovery()
-            interval = get_refresh_interval() 
+            interval = get_refresh_interval()
             print(f"[INFO] Next auto refresh in {interval} seconds.")
             time.sleep(interval)
     thread = threading.Thread(target=loop, daemon=True)

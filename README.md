@@ -58,7 +58,7 @@ The application has been tested and is able to patch signals with the following 
 
 * Currently, patching logic differs depending on the protocol:
 
-**BMD/VideoHub protocol** uses a centralized `emit_patch()` function which performs concurrent patching of video, audio, and data essences using asyncio. This provides good responsiveness and parallel execution.
+**Videohub Ethernet protocol emulation** uses a centralized `emit_patch()` function which performs concurrent patching of video, audio, and data essences using asyncio. This provides good responsiveness and parallel execution.
 **REST API** directly calls `change_source()` for each essence in sequence. This approach is functional but lacks the concurrency and shared logic used in the BMD path.
 
 The plan is to **unify both paths** by having REST also rely on the same `emit_patch()` backend, ensuring consistent behavior and enabling future enhancements (like IS-05 bulk patching or logical group-level routing) with a single source of truth.

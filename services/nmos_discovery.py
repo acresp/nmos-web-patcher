@@ -25,10 +25,17 @@ def detect_nmos_and_connection_versions(node_url):
             url = f"{node_url}node/{version}/sources/"
             r = requests.get(url, timeout=3)
             if r.status_code == 200:
-                data = r.json()
-                if isinstance(data, list) and any("id" in s for s in data if isinstance(s, dict)):
-                    versions["nmos"] = version
-                    break
+                try:
+                    data = r.json()
+                    if isinstance(data, list) and all(isinstance(d, dict) for d in data):
+                        versions["nmos"] = version
+                        break
+                    if isinstance(data, list) and len(data) == 0:
+                        # Empty list is also valid – node supports API
+                        versions["nmos"] = version
+                        break
+                except Exception:
+                    continue
         except Exception:
             continue
 
@@ -37,13 +44,20 @@ def detect_nmos_and_connection_versions(node_url):
             url = f"{node_url}connection/{version}/single/receivers/"
             r = requests.get(url, timeout=3)
             if r.status_code == 200:
-                data = r.json()
-                if isinstance(data, list) and (
-                    any(isinstance(d, dict) and "id" in d for d in data) or
-                    all(isinstance(d, str) and len(d.strip("/")) >= 30 for d in data)
-                ):
-                    versions["connection"] = version
-                    break
+                try:
+                    data = r.json()
+                    if isinstance(data, list):
+                        if len(data) == 0:
+                            versions["connection"] = version  # Empty but valid
+                            break
+                        if any(isinstance(d, dict) and "id" in d for d in data):
+                            versions["connection"] = version
+                            break
+                        if all(isinstance(d, str) and len(d.strip("/")) >= 30 for d in data):
+                            versions["connection"] = version
+                            break
+                except Exception:
+                    continue
         except Exception:
             continue
 

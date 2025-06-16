@@ -188,16 +188,56 @@ function populateEssenceDropdowns() {
     while (sel.options.length > 1) sel.remove(1);
   });
 
+  const grouped = {};
   list.forEach(item => {
-    const essence = (item.essence_type || "").toLowerCase();
-    const label = item.label || item.id;
-    const value = item.id;
-    const opt = new Option(`${label} (${value.slice(0, 6)})`, value);
-
-    if (essence.includes("video")) selects.video.add(opt.cloneNode(true));
-    if (essence.includes("audio")) selects.audio.add(opt.cloneNode(true));
-    if (essence.includes("ancillary") || essence.includes("data")) selects.data.add(opt.cloneNode(true));
+    const node = (
+      item.device?.label ||
+      item.node_name ||
+      item.label ||
+      "Unknown Node"
+    );
+    if (!grouped[node]) grouped[node] = [];
+    grouped[node].push(item);
   });
+
+  for (const [nodeName, items] of Object.entries(grouped)) {
+    const groupHeader = (label) => {
+      const opt = document.createElement("option");
+      opt.textContent = `-- ${nodeName} --`;
+      opt.disabled = true;
+      opt.style = "font-weight: bold; background: #f0f0f0;";
+      label.add(opt);
+    };
+
+    const addItem = (select, item) => {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = `${item.label || item.id} (${item.id.slice(0, 6)})`;
+      select.add(opt);
+    };
+
+    const videoItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("video"));
+    const audioItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("audio"));
+    const dataItems  = items.filter(i => {
+      const type = (i.essence_type || "").toLowerCase();
+      return type.includes("ancillary") || type.includes("data");
+    });
+
+    if (videoItems.length) {
+      groupHeader(selects.video);
+      videoItems.forEach(i => addItem(selects.video, i));
+    }
+
+    if (audioItems.length) {
+      groupHeader(selects.audio);
+      audioItems.forEach(i => addItem(selects.audio, i));
+    }
+
+    if (dataItems.length) {
+      groupHeader(selects.data);
+      dataItems.forEach(i => addItem(selects.data, i));
+    }
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {

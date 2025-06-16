@@ -6,6 +6,8 @@ from services.data_loader import load_nodes, save_nodes
 from services.nmos_discovery import detect_nmos_and_connection_versions
 from services.cache import read_cache as load_cache
 from services.logical import load_logical_ids, save_logical_ids
+from collections import defaultdict
+
 import json
 import asyncio
 import builtins
@@ -118,15 +120,28 @@ def logical_page():
     cache = read_cache()
     senders = cache.get("sources", [])
     receivers = cache.get("receivers", [])
-    logical_ids = load_logical_ids()
 
     for s in senders:
         s["essence_type"] = get_resource_type(s)
+
+    grouped_senders = defaultdict(list)
+    for s in senders:
+        node_name = (
+            s.get("device", {}).get("label") or
+            s.get("node_name") or
+            s.get("label") or
+            "Unknown Node"
+        )
+        grouped_senders[node_name].append(s)
+
     for r in receivers:
         r["essence_type"] = get_resource_type(r)
 
+    logical_ids = load_logical_ids()
+
     return render_template("logical.html",
                            senders=senders,
+                           grouped_senders=grouped_senders,
                            receivers=receivers,
                            logical_ids=logical_ids)
 

@@ -104,14 +104,14 @@ def update_settings():
                 if new_bmd:
                     from protocols.bmdvideohub import VideohubEmulator
                     emulator = VideohubEmulator()
-                    builtins.emulator_instance = emulator
+                    builtins.videohub_emulator = emulator
                     asyncio.run_coroutine_threadsafe(emulator.start(), loop)
                     print("[SETTINGS] BMD Emulator started dynamically")
                 else:
-                    emulator = getattr(builtins, "emulator_instance", None)
+                    emulator = getattr(builtins, "videohub_emulator", None)
                     if emulator:
                         asyncio.run_coroutine_threadsafe(emulator.stop(), loop)
-                        builtins.emulator_instance = None
+                        builtins.videohub_emulator = None
                         print("[SETTINGS] BMD Emulator stopped dynamically")
 
             if old_ross != new_ross:
@@ -203,7 +203,7 @@ def add_logical_id():
 
     loop = getattr(builtins, "main_event_loop", None)
 
-    for emulator_attr in ("emulator_instance", "rosstalk_emulator"):
+    for emulator_attr in ("videohub_emulator", "rosstalk_emulator"):
         emulator = getattr(builtins, emulator_attr, None)
         if emulator and loop:
             try:
@@ -226,7 +226,7 @@ def delete_logical_id():
         save_logical_ids(logicals)
         print(f"[INFO] Deleted logical group: {entry_type} → {logical_name}")
 
-    emulator = getattr(builtins, "emulator_instance", None)
+    emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
 
     if emulator and loop:
@@ -266,7 +266,7 @@ def update_logical_id():
 
     save_logical_ids(logicals)
 
-    emulator = getattr(builtins, "emulator_instance", None)
+    emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
 
     if emulator and loop:

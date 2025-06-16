@@ -19,7 +19,7 @@ A minimal NMOS IS04/IS-05 patchbay — built for engineers who like to keep thin
 - Modular Flask-based architecture for maintainability and extensibility
 - REST API available for automation and external integrations ([API Documentation](docs/API.md))
 - Blackmagic Videohub Ethernet Protocol emulation (see [Bitfocus Companion integration example](docs/BMD_integration.md))
-- RossTalk minimal emulation (see [RossTalk Documentation](docs/RossTalk.md)))
+- RossTalk minimal emulation (see [RossTalk Documentation](docs/RossTalk.md))
 
 ---
 

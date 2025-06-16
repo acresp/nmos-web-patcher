@@ -41,7 +41,9 @@ def load_settings():
         return {}
 
 settings = load_settings()
-builtins.emulator_instance = None
+
+builtins.videohub_emulator = None
+builtins.main_event_loop = None
 
 if settings.get("enable_restapi", False):
     from protocols.restapi import restapi_bp
@@ -79,13 +81,14 @@ async def run_all():
 
     flask_task = asyncio.create_task(asyncio.to_thread(run_flask))
 
+    bmd_emulator_task = None
+
     if settings.get("enable_bmd_emulator", False):
-        emulator = VideohubEmulator()
-        builtins.emulator_instance = emulator
-        emulator_task = asyncio.create_task(emulator.start())
+        videohub_emulator = VideohubEmulator()
+        builtins.videohub_emulator = videohub_emulator
+        bmd_emulator_task = asyncio.create_task(videohub_emulator.start())
         print("[SETTINGS] Blackmagic Videohub Emulator Enabled")
     else:
-        emulator_task = None
         print("[SETTINGS] Blackmagic Videohub Emulator Disabled")
 
     print(f"[CREDITS] NMOS Web Patcher v{__version__} starting...")
@@ -94,8 +97,8 @@ async def run_all():
     print(f"[CREDITS] https://coff.ee/acresp")
 
     tasks = [flask_task]
-    if emulator_task:
-        tasks.append(emulator_task)
+    if bmd_emulator_task:
+        tasks.append(bmd_emulator_task)
 
     try:
         await asyncio.gather(*tasks)

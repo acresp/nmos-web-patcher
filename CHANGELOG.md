@@ -7,6 +7,32 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+### [1.6] – 2025-06-16
+
+#### Changed
+
+- **Improved logical group UI**: dropdown selectors for `video`, `audio`, and `data` in logical groups now display the associated node names alongside the IDs, improving readability and usability.
+- **More robust NMOS version detection**: node capability detection now works even if a node only exposes senders or receivers, not both. This ensures accurate version discovery in more edge cases.
+- **Unified patching backend**: patching operations triggered via the REST API (`/api/take`) and the BMD protocol now rely on a centralized `emit_patch()` function. This provides:
+  - parallel execution of video/audio/data patching
+  - shared discovery of receivers and sources (single pass)
+  - shared `aiohttp` session reuse to reduce network overhead
+  - significantly faster patching compared to previous sequential logic
+  - consistent behavior between REST and BMD layers
+
+  The manual UI route (`/change_source`) continues to use `change_source()` directly, but is now fully compatible with asynchronous execution.
+
+---
+
+## [1.5.1] – 2025-06-14
+
+### Fixes
+
+- Fix nodes.json management - breaking change introduced with cache management in earlier version
+- Nodes aren't stored in cache anymore - only in nodes.json
+
+---
+
 ## [1.5] – 2025-06-12
 
 ### Added

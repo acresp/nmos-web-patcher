@@ -1,6 +1,8 @@
 # /routes/api.py
 # by Arnaud Cresp - 2025
 
+import asyncio
+import builtins
 from flask import Blueprint, request, jsonify
 from services.data_loader import load_nodes
 from services.nmos_connection import change_source, disconnect_receiver
@@ -29,7 +31,20 @@ def api_change_source():
         return jsonify({"status": "error", "message": "Missing receiver or sender ID"}), 400
 
     nodes = load_nodes()
-    result = change_source(nodes, receiver_id, sender_id)
+
+    loop = getattr(builtins, "main_event_loop", None)
+    if not loop:
+        return jsonify({"status": "error", "message": "Asyncio main loop not available"}), 500
+
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            change_source(nodes, receiver_id, sender_id),
+            loop
+        )
+        result = future.result(timeout=5)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
     return jsonify(result), (200 if result["status"] == "success" else result.get("code", 500))
 
 @api_bp.route('/disconnect_receiver', methods=['POST'])

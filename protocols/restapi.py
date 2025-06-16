@@ -36,7 +36,7 @@ def rest_api_enabled_only():
 @rest_api_enabled_only()
 def take_logical():
     from services.logical import load_logical_ids
-    from services.data_loader import load_nodes
+    from services.patch_bus import emit_patch
 
     src_id = request.args.get("src")
     dest_id = request.args.get("dest")
@@ -44,46 +44,33 @@ def take_logical():
     if not src_id or not dest_id:
         return jsonify({"status": "error", "message": "Missing src or dest"}), 400
 
-    src, dest = get_logical_pair(src_id, dest_id)
-    if not src or not dest:
-        return jsonify({"status": "error", "message": "Invalid src or dest ID"}), 404
+    try:
+        src_id = int(src_id)
+        dest_id = int(dest_id)
+    except ValueError:
+        return jsonify({"status": "error", "message": "Invalid src or dest ID"}), 400
 
     logical = load_logical_ids()
-    nodes = load_nodes()
 
-    # Find logical names
-    source_name = next((name for name, val in logical.get("sources", {}).items() if val.get("id") == int(src_id)), None)
-    destination_name = next((name for name, val in logical.get("receivers", {}).items() if val.get("id") == int(dest_id)), None)
+    source_name = next((name for name, val in logical.get("sources", {}).items() if val.get("id") == src_id), None)
+    destination_name = next((name for name, val in logical.get("receivers", {}).items() if val.get("id") == dest_id), None)
 
-    patched = {}
+    if not source_name or not destination_name:
+        return jsonify({"status": "error", "message": "Invalid src or dest ID"}), 404
 
-    for essence in ["video", "audio", "data"]:
-        sender = src.get(essence)
-        receiver = dest.get(essence)
+    loop = getattr(builtins, "main_event_loop", None)
+    if not loop:
+        return jsonify({"status": "error", "message": "Asyncio main loop not available"}), 500
 
-        if sender and receiver:
-            try:
-                patch_result = change_source(nodes, receiver, sender)
-                patched[essence] = {
-                    "status": patch_result.get("status"),
-                    "sender": sender,
-                    "receiver": receiver,
-                    "message": patch_result.get("message", "")
-                }
-            except Exception as e:
-                patched[essence] = {
-                    "status": "error",
-                    "sender": sender,
-                    "receiver": receiver,
-                    "message": str(e)
-                }
-        else:
-            patched[essence] = {
-                "status": "skipped",
-                "reason": "missing sender or receiver"
-            }
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            emit_patch(src_id, dest_id, origin="REST"),
+            loop
+        )
+        patched = future.result(timeout=5)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to emit patch: {str(e)}"}), 500
 
-    # PatchCode Generation
     def essence_status_bit(info):
         return "1" if info.get("status") in ["success", "patched"] else "0"
 
@@ -93,35 +80,27 @@ def take_logical():
         essence_status_bit(patched.get("data", {}))
     )
 
-    # Update BMD Ethernet Protocol status
     try:
-        emulator = getattr(builtins, "emulator_instance", None)
-        if emulator:
-            sender_id = int(src_id)
-            receiver_id = int(dest_id)
-            loop = getattr(builtins, "main_event_loop", None)
-            if loop:
-                future = asyncio.run_coroutine_threadsafe(
-                    emulator.set_routing(sender_id, receiver_id, origin="REST", force_broadcast=True),
-                    loop
-                )
-                future.result()
-                print(f"[RESTAPI] Notified BMD Emulator: {receiver_id} ← {sender_id}")
-            else:
-                print("[RESTAPI] No asyncio loop available to notify emulator.")
+        videohub_emulator = getattr(builtins, "videohub_emulator", None)
+        if videohub_emulator:
+            future = asyncio.run_coroutine_threadsafe(
+                videohub_emulator.set_routing(src_id, dest_id, origin="REST", force_broadcast=True),
+                loop
+            )
+            future.result(timeout=3)
+            print(f"[RESTAPI] Notified Videohub Emulator: {dest_id} ← {src_id}")
         else:
-            print("[RESTAPI] Emulator instance not set")
+            print("[RESTAPI] Videohub Emulator not present")
     except Exception as e:
-        print(f"[RESTAPI] Failed to notify BMD Emulator: {e}")
+        print(f"[RESTAPI] Failed to notify Videohub Emulator: {e}")
 
     return jsonify({
         "status": "ok",
-        "source_name": source_name or str(src_id),
-        "destination_name": destination_name or str(dest_id),
+        "source_name": source_name,
+        "destination_name": destination_name,
         "patch_code": patch_code,
         "patched": patched
     })
-
 
 # API List Function
 @restapi_bp.route("/api/list", methods=["GET"])

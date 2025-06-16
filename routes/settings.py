@@ -21,6 +21,7 @@ def settings():
     patch_secondary = settings_data.get("patch_secondary")
     enable_restapi = settings_data.get("enable_restapi")
     enable_bmd_emulator = settings_data.get("enable_bmd_emulator")
+    enable_rosstalk_emulator = settings_data.get("enable_rosstalk_emulator")
 
     cache = load_cache()
     senders = cache.get("sources", [])
@@ -33,6 +34,7 @@ def settings():
         patch_secondary=patch_secondary,
         enable_restapi=enable_restapi,
         enable_bmd_emulator=enable_bmd_emulator,
+        enable_rosstalk_emulator=enable_rosstalk_emulator,
         senders=senders,
         receivers=receivers
     )
@@ -73,26 +75,32 @@ def refresh_cache():
 def update_settings():
     try:
         data = request.json
+
         with open("settings.json", "r") as f:
             settings_data = json.load(f)
 
         old_bmd = settings_data.get("enable_bmd_emulator", False)
+        old_ross = settings_data.get("enable_rosstalk_emulator", False)
 
+        # Update settings with new values
         settings_data["refresh_interval"] = int(data.get("refresh_interval", 600))
         settings_data["patch_secondary"] = bool(data.get("patch_secondary", False))
         settings_data["enable_restapi"] = bool(data.get("enable_restapi", False))
         settings_data["enable_bmd_emulator"] = bool(data.get("enable_bmd_emulator", False))
+        settings_data["enable_rosstalk_emulator"] = bool(data.get("enable_rosstalk_emulator", False))
 
         new_bmd = settings_data["enable_bmd_emulator"]
+        new_ross = settings_data["enable_rosstalk_emulator"]
 
         print("[DEBUG] Writing updated settings:", settings_data)
 
         with open("settings.json", "w") as f:
             json.dump(settings_data, f, indent=2)
 
-        if old_bmd != new_bmd:
-            loop = getattr(builtins, "main_event_loop", None)
-            if loop:
+        loop = getattr(builtins, "main_event_loop", None)
+
+        if loop:
+            if old_bmd != new_bmd:
                 if new_bmd:
                     from protocols.bmdvideohub import VideohubEmulator
                     emulator = VideohubEmulator()
@@ -106,7 +114,22 @@ def update_settings():
                         builtins.emulator_instance = None
                         print("[SETTINGS] BMD Emulator stopped dynamically")
 
+            if old_ross != new_ross:
+                if new_ross:
+                    from protocols.rosstalk import RossTalkEmulator
+                    emulator = RossTalkEmulator()
+                    builtins.rosstalk_emulator = emulator
+                    asyncio.run_coroutine_threadsafe(emulator.start(), loop)
+                    print("[SETTINGS] RossTalk Emulator started dynamically")
+                else:
+                    emulator = getattr(builtins, "rosstalk_emulator", None)
+                    if emulator:
+                        asyncio.run_coroutine_threadsafe(emulator.stop(), loop)
+                        builtins.rosstalk_emulator = None
+                        print("[SETTINGS] RossTalk Emulator stopped dynamically")
+
         return jsonify({"status": "success", "message": "Settings updated."})
+
     except Exception as e:
         print(f"[ERROR] Failed to save settings: {e}")
         return jsonify({"status": "error", "message": "Failed to save settings"}), 500
@@ -164,7 +187,7 @@ def add_logical_id():
         if group_id in used_ids:
             return f"Error: ID {group_id} already in use for {entry_type}", 400
     else:
-        group_id = max(used_ids, default=0) + 1
+        group_id = max(used_ids, default=-1) + 1
 
     logicals[entry_type][logical_name] = {
         "id": group_id
@@ -178,15 +201,16 @@ def add_logical_id():
 
     save_logical_ids(logicals)
 
-    emulator = getattr(builtins, "emulator_instance", None)
     loop = getattr(builtins, "main_event_loop", None)
 
-    if emulator and loop:
-        try:
-            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
-            print("[SETTINGS] BMD Emulator reloaded after logical update.")
-        except Exception as e:
-            print(f"[SETTINGS] Failed to notify emulator: {e}")
+    for emulator_attr in ("emulator_instance", "rosstalk_emulator"):
+        emulator = getattr(builtins, emulator_attr, None)
+        if emulator and loop:
+            try:
+                asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
+                print(f"[SETTINGS] {emulator_attr} reloaded after logical update.")
+            except Exception as e:
+                print(f"[SETTINGS] Failed to notify {emulator_attr}: {e}")
 
     return redirect("/logical")
 
@@ -222,7 +246,7 @@ def update_logical_id():
     video         = request.form.get("video") or None
     audio         = request.form.get("audio") or None
     data          = request.form.get("data")  or None
-    logical_id    = int(request.form.get("logical_id"))
+    logical_id    = int(request.form.get("logical_id", -1))
 
     logicals = load_logical_ids()
 
@@ -259,7 +283,8 @@ def load_settings():
         "refresh_interval": 300,
         "patch_secondary": True,
         "enable_restapi": True,
-        "enable_bmd_emulator": False
+        "enable_bmd_emulator": False,
+        "enable_rosstalk_emulator": False
     }
 
     try:

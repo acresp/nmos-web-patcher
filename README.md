@@ -18,7 +18,8 @@ A minimal NMOS IS04/IS-05 patchbay — built for engineers who like to keep thin
 - Compatible with devices from Imagine, Ross, Blackmagic, Phabrix, and others
 - Modular Flask-based architecture for maintainability and extensibility
 - REST API available for automation and external integrations ([API Documentation](docs/API.md))
-- Blackmagic Videohub Ethernet Protocol emulation (see [Bitfocus Companion integration example screenshots](docs/BMD_integration.md)) 
+- Blackmagic Videohub Ethernet Protocol emulation (see [Bitfocus Companion integration example](docs/BMD_integration.md))
+- RossTalk minimal emulation (see [RossTalk Documentation](docs/RossTalk.md)))
 
 ---
 
@@ -56,7 +57,7 @@ The application has been tested and is able to patch signals with the following 
 
 * Ongoing bug fixes for improved stability  
 * Support for IS-05 bulk patching to speed up group operations
-* Additional protocol support based on future needs (e.g. RossTalk)  
+* Additional protocol support based on future needs (e.g. Pro-Bel SW-P-08)  
 * **Contributions, ideas, and tested device feedback are welcome** — feel free to open issues or pull requests.
 
 ## License

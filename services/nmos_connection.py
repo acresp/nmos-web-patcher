@@ -56,7 +56,6 @@ from utils.sdp_filter import remove_secondary_streams
 from services.nmos_connection import load_receivers_and_sources
 
 async def change_source(nodes, receiver_id, sender_id, session=None, receivers=None, sources=None):
-    # Préchargement des données si non fournies
     if receivers is None or sources is None:
         print("[TIMING] Loading receivers and sources...")
         t0 = time.perf_counter()
@@ -75,7 +74,6 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
         own_session = True
 
     try:
-        # 1. Récupération du SDP
         sdp_url = f"{sender['node_url']}connection/{sender['versions']['connection']}/single/senders/{sender_id}/transportfile/"
         print(f"[TIMING] Fetching SDP from {sdp_url}")
         t0 = time.perf_counter()
@@ -83,7 +81,6 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
             sdp_data = await resp.text()
         print(f"[TIMING] SDP fetched in {time.perf_counter() - t0:.3f}s")
 
-        # 2. Traitement SDP si nécessaire
         settings = load_settings()
         if not settings.get("patch_secondary", False):
             print("[INFO] Removing secondary streams from SDP")
@@ -91,7 +88,6 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
             sdp_data = remove_secondary_streams(sdp_data)
             print(f"[TIMING] SDP filtering done in {time.perf_counter() - t0:.3f}s")
 
-        # 3. Patch receiver
         patch_receiver = {
             "sender_id": sender_id,
             "master_enable": True,
@@ -114,7 +110,6 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
                 }
         print(f"[TIMING] Receiver patched in {time.perf_counter() - t0:.3f}s")
 
-        # 4. Patch sender activation
         patch_sender = {
             "activation": {"mode": "activate_immediate"},
             "master_enable": True

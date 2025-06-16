@@ -16,10 +16,6 @@ class VideohubEmulator:
         self.routing = {}
         self.server = None
         self.clients = set()
-        self.input_index_map = []
-        self.output_index_map = []
-        self.input_id_to_index = {}
-        self.output_id_to_index = {}
         self._running_task = None
         self.load_labels()
 
@@ -30,12 +26,6 @@ class VideohubEmulator:
 
         self.inputs = {v["id"]: k for k, v in sources.items() if "id" in v and k}
         self.outputs = {v["id"]: k for k, v in receivers.items() if "id" in v and k}
-        self.input_index_map = sorted(self.inputs.keys())
-        self.output_index_map = sorted(self.outputs.keys())
-
-        self.input_id_to_index = {sid: idx for idx, sid in enumerate(self.input_index_map)}
-        self.output_id_to_index = {rid: idx for idx, rid in enumerate(self.output_index_map)}
-
         self.routing = {}
 
     async def start(self):
@@ -124,30 +114,29 @@ class VideohubEmulator:
             "VIDEOHUB DEVICE:\n"
             "Device present: true\n"
             "Model name: NMOS Web Patcher\n"
-            f"Video inputs: {len(self.input_index_map)}\n"
+            f"Video inputs: {len(self.inputs)}\n"
             "Video processing units: 0\n"
-            f"Video outputs: {len(self.output_index_map)}\n"
+            f"Video outputs: {len(self.outputs)}\n"
             "Video monitoring outputs: 0\n"
             "Serial ports: 0"
         )
 
     def input_labels(self):
-        lines = [f"{i} {self.inputs[logical_id]}" for i, logical_id in enumerate(self.input_index_map)]
+        lines = [f"{i} {name}" for i, (i_id, name) in enumerate(sorted(self.inputs.items()))]
         return "INPUT LABELS:\n" + "\n".join(lines)
 
     def output_labels(self):
-        lines = [f"{i} {self.outputs[logical_id]}" for i, logical_id in enumerate(self.output_index_map)]
+        lines = [f"{i} {name}" for i, (i_id, name) in enumerate(sorted(self.outputs.items()))]
         return "OUTPUT LABELS:\n" + "\n".join(lines)
 
     def output_routing(self):
         lines = []
-        for i, output_id in enumerate(self.output_index_map):
-            sender_id = self.routing.get(output_id)
-            input_idx = self.input_id_to_index.get(sender_id)
-            if sender_id is not None and input_idx is not None:
-                lines.append(f"{i} {input_idx}")
+        for receiver_id, receiver_name in sorted(self.outputs.items()):
+            sender_id = self.routing.get(receiver_id)
+            if sender_id is not None and sender_id in self.inputs:
+                lines.append(f"{receiver_id} {sender_id}")
             else:
-                print(f"[BMD PROTOCOL] No valid route for output {i} ({self.outputs.get(output_id)})")
+                print(f"[BMD PROTOCOL] No valid route for output {receiver_id} ({receiver_name})")
         return "VIDEO OUTPUT ROUTING:\n" + "\n".join(lines)
 
     async def broadcast_routing_update(self):
@@ -191,12 +180,15 @@ class VideohubEmulator:
             for line in body:
                 try:
                     out_idx, in_idx = map(int, line.split())
-                    receiver_id = self.output_index_map[out_idx]
-                    sender_id = self.input_index_map[in_idx]
-                    self.routing[receiver_id] = sender_id
-                    await emit_patch(sender_id, receiver_id, origin="BMD")
-                    changed.append(f"{out_idx} {in_idx}")
-                    print(f"[BMD PROTOCOL] Patched output {out_idx} ← input {in_idx} (logical {receiver_id} ← {sender_id})")
+                    receiver_id = out_idx
+                    sender_id = in_idx
+                    if receiver_id in self.outputs and sender_id in self.inputs:
+                        self.routing[receiver_id] = sender_id
+                        await emit_patch(sender_id, receiver_id, origin="BMD")
+                        changed.append(f"{receiver_id} {sender_id}")
+                        print(f"[BMD PROTOCOL] Patched output {receiver_id} ← input {sender_id}")
+                    else:
+                        print(f"[BMD PROTOCOL] Invalid route: {receiver_id} or {sender_id} not found")
                 except Exception as e:
                     print(f"[BMD PROTOCOL] Failed to parse line '{line}': {e}")
 

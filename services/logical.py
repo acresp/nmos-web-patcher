@@ -21,7 +21,7 @@ def get_logical_pair(src_id, dest_id):
     sources = logical.get("sources", {})
     receivers = logical.get("receivers", {})
 
-    src = next((v for v in sources.values() if str(v.get("id")) == str(src_id)), None)
-    dest = next((v for v in receivers.values() if str(v.get("id")) == str(dest_id)), None)
+    src = next((v for v in sources.values() if int(v.get("id", -1)) == int(src_id)), None)
+    dest = next((v for v in receivers.values() if int(v.get("id", -1)) == int(dest_id)), None)
 
     return src, dest

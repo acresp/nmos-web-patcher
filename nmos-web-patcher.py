@@ -70,6 +70,7 @@ async def graceful_shutdown(tasks):
 async def run_all():
     from services.cache import refresh_discovery, start_auto_refresh
     from protocols.bmdvideohub import VideohubEmulator
+    from protocols.rosstalk import RossTalkEmulator
 
     refresh_discovery()
     start_auto_refresh()
@@ -81,29 +82,38 @@ async def run_all():
 
     flask_task = asyncio.create_task(asyncio.to_thread(run_flask))
 
-    bmd_emulator_task = None
+    tasks = [flask_task]
 
+    # VideoHub Ethernet Protocol Emulator
     if settings.get("enable_bmd_emulator", False):
         videohub_emulator = VideohubEmulator()
         builtins.videohub_emulator = videohub_emulator
         bmd_emulator_task = asyncio.create_task(videohub_emulator.start())
+        tasks.append(bmd_emulator_task)
         print("[SETTINGS] Blackmagic Videohub Emulator Enabled")
     else:
         print("[SETTINGS] Blackmagic Videohub Emulator Disabled")
+
+    # RossTalk Protocol
+    if settings.get("enable_rosstalk_emulator", False):
+        rosstalk_emulator = RossTalkEmulator()
+        builtins.rosstalk_emulator = rosstalk_emulator
+        rosstalk_emulator_task = asyncio.create_task(rosstalk_emulator.start())
+        tasks.append(rosstalk_emulator_task)
+        print("[SETTINGS] RossTalk Emulator Enabled")
+    else:
+        print("[SETTINGS] RossTalk Emulator Disabled")
 
     print(f"[CREDITS] NMOS Web Patcher v{__version__} starting...")
     print(f"[CREDITS] by Arnaud Cresp")
     print(f"[CREDITS] https://github.com/acresp/nmos-web-patcher")
     print(f"[CREDITS] https://coff.ee/acresp")
 
-    tasks = [flask_task]
-    if bmd_emulator_task:
-        tasks.append(bmd_emulator_task)
-
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
         await graceful_shutdown(tasks)
+
 
 if __name__ == "__main__":
     try:

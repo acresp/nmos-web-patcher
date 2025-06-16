@@ -175,4 +175,3 @@ def fetch_node_data(node):
         print(f"[ERROR] Failed to fetch senders from {node['name']}: {e}")
 
     return data
-

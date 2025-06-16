@@ -7,7 +7,21 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
-### [1.6] – 2025-06-16
+## [1.6.1] – 2025-06-16
+
+### Added
+
+- **RossTalk**: minimal integration to support RossTalk XPT commands on port 7788. Enable/disable in Settings page.
+
+#### Changed
+
+- **REST**: /take_many command now use `emit_patch()` function introduced in 1.6.0
+- Logical Groups IDs are now beginning at 0 instead of 1. This change is made to reflect more database-style used in majors protocols.
+- VideoHub Ethernet Protocol re-index of IDs deleted, was not needed anymore as Logic Groups IDs begins at 0.
+
+---
+
+## [1.6] – 2025-06-16
 
 #### Changed
 

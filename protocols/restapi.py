@@ -190,8 +190,7 @@ def disconnect_logical():
 @rest_api_enabled_only()
 def take_many():
     from services.logical import load_logical_ids
-    from services.data_loader import load_nodes
-    from services.nmos_connection import change_source
+    from services.patch_bus import emit_patch
 
     src_id = request.args.get("src")
     dest_ids = request.args.get("dest")
@@ -206,21 +205,21 @@ def take_many():
         return jsonify({"status": "error", "message": "Invalid ID format"}), 400
 
     logical = load_logical_ids()
-    nodes = load_nodes()
 
     src_name = next((name for name, val in logical["sources"].items() if val.get("id") == src_id), None)
-    src = logical["sources"].get(src_name) if src_name else None
-
-    if not src:
+    if not src_name:
         return jsonify({"status": "error", "message": "Invalid source ID"}), 404
+
+    loop = getattr(builtins, "main_event_loop", None)
+    if not loop:
+        return jsonify({"status": "error", "message": "Asyncio main loop not available"}), 500
 
     responses = []
 
     for dest_id in dest_ids:
         dest_name = next((name for name, val in logical["receivers"].items() if val.get("id") == dest_id), None)
-        dest = logical["receivers"].get(dest_name) if dest_name else None
 
-        if not dest:
+        if not dest_name:
             responses.append({
                 "dest_id": dest_id,
                 "receiver_name": None,
@@ -229,32 +228,21 @@ def take_many():
             })
             continue
 
-        patched = {}
-        for essence in ["video", "audio", "data"]:
-            sender = src.get(essence)
-            receiver = dest.get(essence)
-
-            if sender and receiver:
-                try:
-                    patch_result = change_source(nodes, receiver, sender)
-                    patched[essence] = {
-                        "status": patch_result.get("status"),
-                        "sender": sender,
-                        "receiver": receiver,
-                        "message": patch_result.get("message", "")
-                    }
-                except Exception as e:
-                    patched[essence] = {
-                        "status": "error",
-                        "sender": sender,
-                        "receiver": receiver,
-                        "message": str(e)
-                    }
-            else:
-                patched[essence] = {
-                    "status": "skipped",
-                    "reason": "missing sender or receiver"
-                }
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                emit_patch(src_id, dest_id, origin="REST"),
+                loop
+            )
+            patched = future.result(timeout=5)
+        except Exception as e:
+            responses.append({
+                "dest_id": dest_id,
+                "receiver_name": dest_name,
+                "status": "error",
+                "message": str(e),
+                "patched": {}
+            })
+            continue
 
         def essence_status_bit(info):
             return "1" if info.get("status") in ["success", "patched"] else "0"

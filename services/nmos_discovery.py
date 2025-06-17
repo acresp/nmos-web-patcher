@@ -67,19 +67,24 @@ def get_resource_type(resource):
     if not isinstance(resource, dict):
         return "invalid"
 
-    format = resource.get('format', '').lower()
+    # Récupération et normalisation du champ 'format'
+    format = resource.get('format', '')
+    if not isinstance(format, str):
+        format = ''
+    format = format.lower()
+
     label = resource.get('label', '').lower()
     description = resource.get('description', '').lower()
     tags = resource.get('tags', {})
     caps = resource.get('caps', {})
 
-    # Priority 1: explicit format
-    if "video" in format and "smpte291" not in format:
+    # Priority 1: explicit format (NMOS standard-compliant)
+    if format == "urn:x-nmos:format:video":
         return "video"
-    if "smpte291" in format or "data" in format:
-        return "ancillary"
-    if "audio" in format:
+    if format == "urn:x-nmos:format:audio":
         return "audio"
+    if format in ["urn:x-nmos:format:data", "urn:x-nmos:format:smpte291"]:
+        return "ancillary"
 
     # Priority 2: caps.media_types
     media_types = caps.get('media_types', [])
@@ -93,15 +98,15 @@ def get_resource_type(resource):
             return "video"
 
     # Priority 3: label-based fallback
-    if "anc" in label or "ancillary" in label or "data" in label:
+    if any(x in label for x in ["anc", "ancillary", "data"]):
         return "ancillary"
-    if "audio" in label or "aud" in label:
+    if any(x in label for x in ["audio", "aud", "ebur", "loudness"]):
         return "audio"
-    if "video" in label or "vid" in label or "vision" in label:
+    if any(x in label for x in ["video", "vid", "vision"]):
         return "video"
 
     # Priority 4: description fallback
-    if "anc" in description or "ancillary" in description or "data" in description:
+    if any(x in description for x in ["anc", "ancillary", "data"]):
         return "ancillary"
     if "audio" in description:
         return "audio"
@@ -112,13 +117,14 @@ def get_resource_type(resource):
     for tag_list in tags.values():
         for tag in tag_list:
             tag = tag.lower()
-            if "anc" in tag or "ancillary" in tag or "data" in tag:
+            if any(x in tag for x in ["anc", "ancillary", "data"]):
                 return "ancillary"
             if "audio" in tag:
                 return "audio"
             if "video" in tag:
                 return "video"
 
+    # Default fallback
     return "unknown"
 
 def fetch_node_data(node):

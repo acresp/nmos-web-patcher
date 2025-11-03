@@ -3,7 +3,7 @@
 A minimal NMOS IS04/IS-05 patchbay — built for engineers who like to keep things clean and simple.
 
 <p align="center">
-  <img src="docs/nmos-web-patcher-v1.3.2.png" alt="NMOS Web Patcher Screenshot" width="800">
+  <img src="docs/nmos-web-patcher-v1.7.png" alt="NMOS Web Patcher Screenshot" width="800">
 </p>
 
 ---

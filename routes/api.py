@@ -3,6 +3,7 @@
 
 import asyncio
 import builtins
+import threading
 from flask import Blueprint, request, jsonify
 from services.data_loader import load_nodes
 from services.nmos_connection import change_source, disconnect_receiver
@@ -10,16 +11,17 @@ from services.cache import refresh_discovery
 
 api_bp = Blueprint('api', __name__)
 
-refresh_discovery()
-
 @api_bp.route('/refresh_cache')
 def api_refresh_cache():
-    try:
-        refresh_discovery()
-        return jsonify({"status": "success", "message": "Cache refreshed."})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    def do_refresh():
+        try:
+            refresh_discovery()
+            print("[INFO] Cache refreshed successfully.")
+        except Exception as e:
+            print(f"[ERROR] Cache refresh failed: {e}")
 
+    threading.Thread(target=do_refresh, daemon=True).start()
+    return jsonify({"status": "in_progress", "message": "Cache refresh started in background."})
 
 @api_bp.route('/change_source', methods=['POST'])
 def api_change_source():
@@ -55,65 +57,80 @@ def api_disconnect_receiver():
     if not receiver_id:
         return jsonify({"status": "error", "message": "Missing receiver ID"}), 400
 
-    nodes = load_nodes()
-    result = disconnect_receiver(nodes, receiver_id)
-    return jsonify(result), (200 if result["status"] == "success" else result.get("code", 500))
-
-@api_bp.route('/get_current_sender/<receiver_id>')
-def get_current_sender(receiver_id):
-    import requests
     from services.cache import read_cache
+    from services.data_loader import load_nodes
 
+    nodes = load_nodes()
     cache = read_cache()
     receivers = cache.get("receivers", [])
-    sources = cache.get("sources", [])
 
-    receiver = next((r for r in receivers if r.get("id") == receiver_id), None)
-    if not receiver:
-        print(f"[WARNING] Receiver with ID {receiver_id} not found in cache")
-        return jsonify({"status": "error", "message": "Receiver not found"})
+    result = disconnect_receiver(nodes, receiver_id, receivers=receivers)
+    return jsonify(result), (200 if result.get("status") == "success" else result.get("code", 500))
 
-    node_url = receiver.get('node_url')
-    version = receiver.get('versions', {}).get('connection', 'v1.1')
+@api_bp.route("/get_current_sender/<receiver_id>")
+def get_current_sender(receiver_id):
+    from services.cache import read_cache
+    from services.data_loader import load_nodes
+    from services.nmos_discovery import safe_get_json
 
-    if not node_url:
-        print(f"[ERROR] Missing node_url for receiver {receiver_id}")
-        return jsonify({"status": "error", "message": "Missing node URL"}), 500
+    cache = read_cache()
+    nodes = load_nodes()
+
+    receivers = cache.get("receivers", [])
+    receiver_obj = next((r for r in receivers if r.get("id") == receiver_id), None)
+    if not receiver_obj:
+        return jsonify({"label": "Unknown", "message": "Receiver not found"}), 404
+
+    node_name = receiver_obj.get("node_name")
+    node_info = next((n for n in nodes if n.get("name") == node_name), None)
+    if not node_info:
+        return jsonify({"label": "Unknown", "message": f"Node {node_name} not found"}), 404
+
+    base_url = (node_info.get("url") or "").rstrip("/")
+    if base_url.endswith("/x-nmos"):
+        base_url = base_url.rsplit("/x-nmos", 1)[0]
+
+    connection_version = (
+        node_info.get("versions", {}).get("connection")
+        or node_info.get("connection")
+        or "v1.1"
+    )
+
+    active_url = f"{base_url}/x-nmos/connection/{connection_version}/single/receivers/{receiver_id}/active/"
 
     try:
-        url = f"{node_url}/connection/{version}/single/receivers/{receiver_id}/active/"
-        r = requests.get(url, timeout=2)
+        active_data = safe_get_json(active_url, timeout=2)
 
-        if r.status_code == 200:
-            data = r.json()
-            sender_id = data.get("sender_id")
+        sender_id = (
+            active_data.get("transport_params", [{}])[0].get("sender_id")
+            or active_data.get("sender_id")
+        )
 
-            if not sender_id:
-                print(f"[INFO] Receiver {receiver_id} is not connected to any sender")
-                return jsonify({
-                    "status": "success",
-                    "current_sender_label": "None",
-                    "current_sender_node": "Unknown"
-                })
+        if not sender_id:
+            return jsonify({
+                "label": "None",
+                "sender_id": None,
+                "message": "Receiver has no active sender"
+            }), 200
 
-            sender = next((s for s in sources if s.get('id') == sender_id), None)
-            if sender:
-                return jsonify({
-                    "status": "success",
-                    "current_sender_label": sender.get("label", "Unknown"),
-                    "current_sender_node": sender.get("node_name", "Unknown")
-                })
-            else:
-                print(f"[WARNING] Sender ID {sender_id} not found in known sources")
-                return jsonify({
-                    "status": "success",
-                    "current_sender_label": "Unknown",
-                    "current_sender_node": "Unknown"
-                })
-        else:
-            print(f"[ERROR] Failed to fetch active sender. Status code: {r.status_code}")
-            return jsonify({"status": "error", "message": "Could not fetch active sender"}), 404
+        sender_obj = next((s for s in cache.get("sources", []) if s.get("id") == sender_id), None)
+        label = sender_obj.get("label", sender_id) if sender_obj else sender_id
+
+        return jsonify({
+            "label": label,
+            "sender_id": sender_id,
+            "message": f"Fetched from {connection_version} NMOS endpoint"
+        }), 200
 
     except Exception as e:
-        print(f"[EXCEPTION] Error in get_current_sender: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"[WARN] Fallback to cache for receiver {receiver_id}: {e}")
+        sender_id = receiver_obj.get("subscription", {}).get("sender_id")
+        sender_label = next(
+            (s.get("label") for s in cache.get("sources", []) if s.get("id") == sender_id),
+            sender_id
+        )
+        return jsonify({
+            "label": sender_label or "Unknown",
+            "sender_id": sender_id,
+            "message": f"Fallback cache (error: {e})"
+        }), 200

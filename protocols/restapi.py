@@ -2,8 +2,6 @@
 # by Arnaud Cresp - 2025
 
 from flask import Blueprint, jsonify, request
-from services.logical import get_logical_pair
-from services.nmos_connection import change_source
 import json
 from functools import wraps
 import asyncio

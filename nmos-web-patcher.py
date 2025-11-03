@@ -15,8 +15,11 @@ import atexit
 import sys
 
 class QuietExit:
-    def write(self, *args, **kwargs): pass
-    def flush(self): pass
+    def write(self, *args, **kwargs):
+        pass
+
+    def flush(self):
+        pass
 
 def silent_thread_shutdown():
     try:
@@ -37,20 +40,15 @@ def load_settings():
     try:
         with open("settings.json") as f:
             return json.load(f)
-    except:
+    except Exception:
         return {}
+
 
 settings = load_settings()
 
 builtins.videohub_emulator = None
+builtins.rosstalk_emulator = None
 builtins.main_event_loop = None
-
-if settings.get("enable_restapi", False):
-    from protocols.restapi import restapi_bp
-    app.register_blueprint(restapi_bp)
-    print("[SETTINGS] REST API Enabled")
-else:
-    print("[SETTINGS] REST API Disabled")
 
 @app.context_processor
 def inject_version():
@@ -68,59 +66,72 @@ async def graceful_shutdown(tasks):
     print("[EXIT] nmos-web-patcher has been stopped")
 
 async def run_all():
-    from services.cache import refresh_discovery, start_auto_refresh
+
+    from services.cache import refresh_discovery, start_auto_refresh, wait_cache_ready
     from protocols.bmdvideohub import VideohubEmulator
     from protocols.rosstalk import RossTalkEmulator
 
-    refresh_discovery()
-    start_auto_refresh()
+    print("[INFO] Refreshing NMOS discovery cache (init)...")
+    refresh_discovery(timeout=8)
+
+    start_auto_refresh(kickoff=False)
 
     builtins.main_event_loop = asyncio.get_running_loop()
+
+    print("[INIT] Waiting for NMOS cache to be ready...")
+    await asyncio.to_thread(wait_cache_ready, 30)
+    print("[INIT] NMOS cache is ready. Starting emulators.")
 
     def run_flask():
         run_simple("0.0.0.0", 5000, app, use_debugger=True, use_reloader=False)
 
     flask_task = asyncio.create_task(asyncio.to_thread(run_flask))
-
     tasks = [flask_task]
 
-    # VideoHub Ethernet Protocol Emulator
+    # BMD Emulator
     if settings.get("enable_bmd_emulator", False):
         videohub_emulator = VideohubEmulator()
         builtins.videohub_emulator = videohub_emulator
-        bmd_emulator_task = asyncio.create_task(videohub_emulator.start())
-        tasks.append(bmd_emulator_task)
+        bmd_task = asyncio.create_task(videohub_emulator.start())
+        tasks.append(bmd_task)
         print("[SETTINGS] Blackmagic Videohub Emulator Enabled")
     else:
         print("[SETTINGS] Blackmagic Videohub Emulator Disabled")
 
-    # RossTalk Protocol
+    # RossTalk
     if settings.get("enable_rosstalk_emulator", False):
         rosstalk_emulator = RossTalkEmulator()
         builtins.rosstalk_emulator = rosstalk_emulator
-        rosstalk_emulator_task = asyncio.create_task(rosstalk_emulator.start())
-        tasks.append(rosstalk_emulator_task)
+        ross_task = asyncio.create_task(rosstalk_emulator.start())
+        tasks.append(ross_task)
         print("[SETTINGS] RossTalk Emulator Enabled")
     else:
         print("[SETTINGS] RossTalk Emulator Disabled")
 
+    # REST API
+    if settings.get("enable_restapi", False):
+        from protocols.restapi import restapi_bp
+        app.register_blueprint(restapi_bp)
+        print("[SETTINGS] REST API Enabled")
+    else:
+        print("[SETTINGS] REST API Disabled")
+
     print(f"[CREDITS] NMOS Web Patcher v{__version__} starting...")
-    print(f"[CREDITS] by Arnaud Cresp")
-    print(f"[CREDITS] https://github.com/acresp/nmos-web-patcher")
-    print(f"[CREDITS] https://coff.ee/acresp")
+    print("[CREDITS] by Arnaud Cresp")
+    print("[CREDITS] https://github.com/acresp/nmos-web-patcher")
+    print("[CREDITS] https://coff.ee/acresp")
 
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
         await graceful_shutdown(tasks)
 
-
 if __name__ == "__main__":
     try:
         asyncio.run(run_all())
     except KeyboardInterrupt:
         print("\n[APP QUIT]")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[FATAL] Unexpected error: {e}")
     finally:
         sys.stderr = QuietExit()

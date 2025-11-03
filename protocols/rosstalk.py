@@ -2,10 +2,9 @@
 # by Arnaud Cresp – 2025
 
 import asyncio
-import builtins
 from services.patch_bus import emit_patch
 from services.logical import load_logical_ids
-from services.cache import refresh_discovery, read_cache
+from services.cache import read_cache
 
 class RossTalkEmulator:
     def __init__(self, host="0.0.0.0", port=7788):
@@ -95,8 +94,10 @@ class RossTalkEmulator:
 
     async def refresh_routing_from_nmos(self):
         try:
-            await asyncio.to_thread(refresh_discovery)
+            from services.cache import wait_cache_ready
+            await asyncio.to_thread(wait_cache_ready, 30)
             cache = read_cache()
+
             logicals = load_logical_ids()
             receivers_cache = cache.get("receivers", [])
 

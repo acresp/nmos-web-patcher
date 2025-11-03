@@ -6,7 +6,6 @@ from services.data_loader import load_nodes, save_nodes
 from services.nmos_discovery import detect_nmos_and_connection_versions
 from services.cache import read_cache as load_cache
 from services.logical import load_logical_ids, save_logical_ids
-from collections import defaultdict
 
 import json
 import asyncio
@@ -139,6 +138,8 @@ def logical_page():
     from services.cache import read_cache
     from services.logical import load_logical_ids
     from services.nmos_discovery import get_resource_type
+    from collections import defaultdict
+    import re
 
     cache = read_cache()
     senders = cache.get("sources", [])
@@ -146,27 +147,61 @@ def logical_page():
 
     for s in senders:
         s["essence_type"] = get_resource_type(s)
+    for r in receivers:
+        r["essence_type"] = get_resource_type(r)
+
+    def parse_label_sortkey(label):
+        try:
+            m = re.search(r"\[(\d+),(\d+),(\d+)\]", label)
+            sfx = re.search(r"\](\d{2})", label)
+            a, b, c = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (999, 999, 999)
+            s = int(sfx.group(1)) if sfx else 0
+            return (a, b, c, s, label.lower())
+        except Exception:
+            return (999, 999, 999, 999, label.lower())
+
+    senders.sort(key=lambda x: (
+        (x.get("device", {}) or {}).get("label") or
+        x.get("node_name") or
+        "zzz",
+        *parse_label_sortkey(x.get("label", ""))
+    ))
+
+    receivers.sort(key=lambda x: (
+        (x.get("device", {}) or {}).get("label") or
+        x.get("node_name") or
+        "zzz",
+        *parse_label_sortkey(x.get("label", ""))
+    ))
 
     grouped_senders = defaultdict(list)
     for s in senders:
         node_name = (
-            s.get("device", {}).get("label") or
-            s.get("node_name") or
-            s.get("label") or
-            "Unknown Node"
+            s.get("device", {}).get("label")
+            or s.get("node_name")
+            or s.get("label")
+            or "Unknown Node"
         )
         grouped_senders[node_name].append(s)
 
-    for r in receivers:
-        r["essence_type"] = get_resource_type(r)
-
     logical_ids = load_logical_ids()
 
-    return render_template("logical.html",
-                           senders=senders,
-                           grouped_senders=grouped_senders,
-                           receivers=receivers,
-                           logical_ids=logical_ids)
+    print(f"[DEBUG] Logical page loaded: {len(senders)} senders, {len(receivers)} receivers (triés)")
+
+    return render_template(
+        "logical.html",
+        senders=senders,
+        grouped_senders=grouped_senders,
+        receivers=receivers,
+        logical_ids=logical_ids
+    )
+
+def next_contiguous_id(used_ids):
+    used = sorted(set(used_ids))
+    for i, val in enumerate(used):
+        if i != val:
+            return i
+    return len(used)
 
 @settings_bp.route("/settings/logical_ids", methods=["POST"])
 def add_logical_id():
@@ -177,21 +212,72 @@ def add_logical_id():
     data = request.form.get("data")
     submitted_id = request.form.get("logical_id")
 
+    from services.cache import read_cache
+    from services.nmos_discovery import get_resource_type
+    from collections import defaultdict
+    import re
+
+    cache = read_cache()
+    senders = cache.get("sources", [])
+    receivers = cache.get("receivers", [])
+
+    for s in senders:
+        s["essence_type"] = get_resource_type(s)
+    for r in receivers:
+        r["essence_type"] = get_resource_type(r)
+
+    def parse_label_sortkey(label):
+        try:
+            m = re.search(r"\[(\d+),(\d+),(\d+)\]", label)
+            sfx = re.search(r"\](\d{2})", label)
+            a, b, c = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (999, 999, 999)
+            s = int(sfx.group(1)) if sfx else 0
+            return (a, b, c, s, label.lower())
+        except Exception:
+            return (999, 999, 999, 999, label.lower())
+
+    senders.sort(key=lambda x: (
+        (x.get("device", {}) or {}).get("label") or
+        x.get("node_name") or
+        "zzz",
+        *parse_label_sortkey(x.get("label", ""))
+    ))
+
+    receivers.sort(key=lambda x: (
+        (x.get("device", {}) or {}).get("label") or
+        x.get("node_name") or
+        "zzz",
+        *parse_label_sortkey(x.get("label", ""))
+    ))
+
     logicals = load_logical_ids()
     logicals.setdefault(entry_type, {})
 
     used_ids = [v["id"] for v in logicals[entry_type].values() if "id" in v]
 
-    if submitted_id:
-        group_id = int(submitted_id)
-        if group_id in used_ids:
-            return f"Error: ID {group_id} already in use for {entry_type}", 400
-    else:
-        group_id = max(used_ids, default=-1) + 1
+    if logical_name in logicals[entry_type]:
+        return render_template(
+            "logical.html",
+            senders=senders,
+            receivers=receivers,
+            logical_ids=logicals,
+            message=f"Logical group '{logical_name}' already exists for {entry_type}",
+            message_type="error"
+        )
 
-    logicals[entry_type][logical_name] = {
-        "id": group_id
-    }
+    if submitted_id and int(submitted_id) in used_ids:
+        return render_template(
+            "logical.html",
+            senders=senders,
+            receivers=receivers,
+            logical_ids=logicals,
+            message=f"ID {submitted_id} already in use for {entry_type}",
+            message_type="error"
+        )
+
+    group_id = next_contiguous_id(used_ids)
+
+    logicals[entry_type][logical_name] = {"id": group_id}
     if video:
         logicals[entry_type][logical_name]["video"] = video
     if audio:
@@ -199,20 +285,34 @@ def add_logical_id():
     if data:
         logicals[entry_type][logical_name]["data"] = data
 
+    logicals[entry_type] = dict(
+        sorted(
+            logicals[entry_type].items(),
+            key=lambda kv: kv[1].get("id", 9999)
+        )
+    )
+
     save_logical_ids(logicals)
 
+    emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
 
-    for emulator_attr in ("videohub_emulator", "rosstalk_emulator"):
-        emulator = getattr(builtins, emulator_attr, None)
-        if emulator and loop:
-            try:
-                asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
-                print(f"[SETTINGS] {emulator_attr} reloaded after logical update.")
-            except Exception as e:
-                print(f"[SETTINGS] Failed to notify {emulator_attr}: {e}")
+    if emulator and loop:
+        try:
+            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
+            print("[SETTINGS] BMD Emulator reloaded after logical add.")
+        except Exception as e:
+            print(f"[SETTINGS] Failed to notify emulator: {e}")
 
-    return redirect("/logical")
+    print(f"[LOGICAL] Added {entry_type} logical '{logical_name}' with ID={group_id} (sorted save)")
+    return render_template(
+        "logical.html",
+        senders=senders,
+        receivers=receivers,
+        logical_ids=logicals,
+        message=f"Added {entry_type} logical '{logical_name}' with ID={group_id} successfully.",
+        message_type="success"
+    )
 
 @settings_bp.route('/settings/delete_logical_id', methods=['POST'])
 def delete_logical_id():

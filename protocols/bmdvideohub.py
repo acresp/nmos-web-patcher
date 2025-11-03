@@ -4,7 +4,7 @@
 import asyncio
 from __version__ import __version__
 from services.logical import load_logical_ids
-from services.cache import refresh_discovery, read_cache
+from services.cache import read_cache, wait_cache_ready
 from services.patch_bus import emit_patch
 
 class VideohubEmulator:
@@ -29,7 +29,9 @@ class VideohubEmulator:
         self.routing = {}
 
     async def start(self):
-        await self.refresh_routing_from_nmos()
+        await asyncio.to_thread(wait_cache_ready, 30)
+
+        await self.sync_from_cache()
         await self.broadcast_routing_update()
 
         self.server = await asyncio.start_server(self.handle_client, self.host, self.port)
@@ -47,8 +49,8 @@ class VideohubEmulator:
             try:
                 client.close()
                 await client.wait_closed()
-            except Exception as e:
-                print(f"[BMD PROTOCOL] Failed to close client: {e}")
+            except Exception:
+                pass
         self.clients.clear()
 
         if self._running_task:
@@ -71,8 +73,7 @@ class VideohubEmulator:
             self.send(writer, self.output_labels())
             self.send(writer, self.output_routing())
             await writer.drain()
-        except (ConnectionResetError, BrokenPipeError) as e:
-            print(f"[BMD PROTOCOL] Client disconnected prematurely: {e}")
+        except (ConnectionResetError, BrokenPipeError):
             return
 
         await self.broadcast_routing_update()
@@ -84,7 +85,6 @@ class VideohubEmulator:
                 if not line:
                     break
                 line = line.decode().strip()
-                print(f"[BMD PROTOCOL] << {line}")
                 if not line:
                     await self.process_block(buffer, writer)
                     buffer = []
@@ -95,12 +95,10 @@ class VideohubEmulator:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except Exception as e:
-                print(f"[BMD PROTOCOL] Writer cleanup error: {e}")
+            except Exception:
+                pass
 
     def send(self, writer, content: str):
-        for line in content.strip().splitlines():
-            print(f"[BMD PROTOCOL] >> {line}")
         try:
             writer.write(content.encode() + b"\n\n")
         except Exception as e:
@@ -135,19 +133,15 @@ class VideohubEmulator:
             sender_id = self.routing.get(receiver_id)
             if sender_id is not None and sender_id in self.inputs:
                 lines.append(f"{receiver_id} {sender_id}")
-            else:
-                print(f"[BMD PROTOCOL] No valid route for output {receiver_id} ({receiver_name})")
         return "VIDEO OUTPUT ROUTING:\n" + "\n".join(lines)
 
     async def broadcast_routing_update(self):
         content = self.output_routing()
-        print(f"[BMD PROTOCOL] >> VIDEO OUTPUT ROUTING (broadcast):\n{content}")
         for client in list(self.clients):
             try:
                 self.send(client, content)
                 await client.drain()
-            except Exception as e:
-                print(f"[BMD PROTOCOL] Failed to notify client: {e}")
+            except Exception:
                 self.clients.discard(client)
 
     async def process_block(self, lines, writer):
@@ -186,9 +180,6 @@ class VideohubEmulator:
                         self.routing[receiver_id] = sender_id
                         await emit_patch(sender_id, receiver_id, origin="BMD")
                         changed.append(f"{receiver_id} {sender_id}")
-                        print(f"[BMD PROTOCOL] Patched output {receiver_id} ← input {sender_id}")
-                    else:
-                        print(f"[BMD PROTOCOL] Invalid route: {receiver_id} or {sender_id} not found")
                 except Exception as e:
                     print(f"[BMD PROTOCOL] Failed to parse line '{line}': {e}")
 
@@ -204,61 +195,68 @@ class VideohubEmulator:
     async def set_routing(self, sender_id, receiver_id, origin="external", force_broadcast=False):
         current = self.routing.get(receiver_id)
         if current == sender_id and not force_broadcast:
-            print(f"[BMD PROTOCOL] No update needed from {origin}: {receiver_id} already routed to {sender_id}")
             return
-
         self.routing[receiver_id] = sender_id
-        print(f"[BMD PROTOCOL] Update from {origin}: {receiver_id} ← {sender_id} (was {current})")
         await self.broadcast_routing_update()
 
     async def reload_and_broadcast(self):
         self.load_labels()
-        await self.refresh_routing_from_nmos()
+        await self.sync_from_cache()
         await self.broadcast_routing_update()
-        print("[BMD PROTOCOL] Reloaded logical labels and broadcasted update.")
 
-    async def refresh_routing_from_nmos(self):
+    async def sync_from_cache(self):
         try:
-            await asyncio.to_thread(refresh_discovery)
             cache = read_cache()
             logicals = load_logical_ids()
+
             receivers_cache = cache.get("receivers", [])
+            sources_cache = cache.get("sources", [])
+
+            receivers_by_id = {r.get("id"): r for r in receivers_cache if r.get("id")}
+            sources_by_uuid = {s.get("id"): s for s in sources_cache if s.get("id")}
+
+            uuid_to_input_id = {}
+            for src_name, src_info in (logicals.get("sources") or {}).items():
+                src_input_id = src_info.get("id")
+                if src_input_id is None:
+                    continue
+                for essence in ("video", "audio", "data"):
+                    u = src_info.get(essence)
+                    if u:
+                        uuid_to_input_id[u] = src_input_id
+
             matched = 0
+            unresolved = 0
 
-            for receiver_name, receiver_info in logicals.get("receivers", {}).items():
-                receiver_id = receiver_info.get("id")
-                found = False
-                for source_name, source_info in logicals.get("sources", {}).items():
-                    sender_match = True
-                    for essence in ["video", "audio", "data"]:
-                        sender_id = source_info.get(essence)
-                        receiver_uuid = receiver_info.get(essence)
+            def pick_receiver_uuid(rec_info: dict):
+                return rec_info.get("video") or rec_info.get("audio") or rec_info.get("data")
 
-                        if not sender_id or not receiver_uuid:
-                            continue
+            for recv_name, recv_info in (logicals.get("receivers") or {}).items():
+                out_id = recv_info.get("id")
+                nmos_recv_uuid = pick_receiver_uuid(recv_info)
+                if out_id is None or not nmos_recv_uuid:
+                    unresolved += 1
+                    continue
 
-                        receiver_obj = next((r for r in receivers_cache if r.get("id") == receiver_uuid), None)
-                        if not receiver_obj:
-                            print(f"[BMD MATCH] Receiver {receiver_name} missing from cache (UUID={receiver_uuid})")
-                            sender_match = False
-                            break
+                recv_obj = receivers_by_id.get(nmos_recv_uuid)
+                if not recv_obj:
+                    unresolved += 1
+                    continue
 
-                        actual_sender = receiver_obj.get("subscription", {}).get("sender_id")
-                        if actual_sender != sender_id:
-                            print(f"[BMD MATCH] Mismatch for {receiver_name}: expected {sender_id}, got {actual_sender}")
-                            sender_match = False
-                            break
+                sub = recv_obj.get("subscription") or {}
+                sender_uuid = sub.get("sender_id")
+                if not sender_uuid:
+                    unresolved += 1
+                    continue
 
-                    if sender_match:
-                        self.routing[receiver_id] = source_info.get("id")
-                        print(f"[BMD SYNC] {receiver_name} ← {source_name}")
-                        matched += 1
-                        found = True
-                        break
+                input_id = uuid_to_input_id.get(sender_uuid)
+                if input_id is None:
+                    unresolved += 1
+                    continue
 
-                if not found:
-                    print(f"[BMD SYNC] No matching source found for receiver: {receiver_name}")
+                self.routing[out_id] = input_id
+                matched += 1
 
-            print(f"[BMD PROTOCOL] Routing sync completed: {matched} logical group(s) matched.")
+            print(f"[BMD PROTOCOL] Routing sync completed: {matched} routes matched, {unresolved} unresolved.")
         except Exception as e:
             print(f"[BMD PROTOCOL] Error syncing NMOS routing: {e}")

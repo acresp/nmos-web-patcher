@@ -2,8 +2,10 @@
 # by Arnaud Cresp - 2025
 
 from flask import Blueprint, render_template
+from collections import defaultdict
 from services.cache import read_cache
 from services.data_loader import load_nodes
+from services.nmos_discovery import get_resource_type
 import re
 
 main_bp = Blueprint('main', __name__)
@@ -30,23 +32,40 @@ def extract_sort_key(item):
 
     return (999, 999, 999, label)
 
+
+def group_by_node_and_type(items):
+    grouped = defaultdict(lambda: defaultdict(list))
+    for item in items:
+        node_name = item.get("node_name", "Unknown Node")
+        essence_type = item.get("type") or item.get("essence_type") or get_resource_type(item)
+        grouped[node_name][essence_type].append(item)
+    return grouped
+
+
 @main_bp.route('/')
 def index():
     cache = read_cache()
+    receivers = cache.get('receivers', [])
+    sources   = cache.get('sources', [])
 
-    receivers = sorted(cache['receivers'], key=extract_sort_key)
-    sources   = sorted(cache['sources'], key=extract_sort_key)
+    for r in receivers:
+        r["type"] = get_resource_type(r)
+    for s in sources:
+        s["type"] = get_resource_type(s)
+
+    grouped_receivers = group_by_node_and_type(sorted(receivers, key=extract_sort_key))
+    grouped_sources   = group_by_node_and_type(sorted(sources, key=extract_sort_key))
 
     nodes = load_nodes()
 
     return render_template(
         'index.html',
+        grouped_receivers=grouped_receivers,
+        grouped_sources=grouped_sources,
         receivers=receivers,
         sources=sources,
         nodes=nodes,
         node_count=len(nodes),
         receiver_count=len(receivers),
-        source_count=len(sources),
-        selected_receiver_id=None,
-        selected_source_id=None
+        source_count=len(sources)
     )

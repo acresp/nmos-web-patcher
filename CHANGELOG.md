@@ -7,6 +7,30 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.7.0] – 2025-11-03
+
+### Added
+
+- **Logical Groups**: added *Disconnect* option in the essence selector (video/audio/anc/none) when creating new logical groups.  
+- **Error Handling**: form now properly rejects duplicate logical names or IDs with a clear error message.  
+- **Cache System**: extended caching layer to avoid redundant NMOS requests during patch operations.  
+  All routing operations now use the local cache, providing a much faster and smoother interface.
+
+### Changed
+
+- **Main Page (Manual Patch View)**: reorganized grid layout by essence type *(Video / Audio / ANC)* for better readability during manual patching.  
+- **Logical Page**: dropdowns for senders and receivers are now properly sorted, even on nodes with a large number of endpoints (e.g. SNP).  
+- **Logical IDs**: improved contiguous ID allocator to fill gaps automatically when groups are deleted.  
+- **BMD Emulator**: automatically reloads and broadcasts after any logical group add/update/delete — no restart required.  
+- **Patch Operations**: whenever a patch is performed, the NMOS cache is automatically updated to keep it consistent with the current routing state.
+
+### Fixed
+
+- **Discovery Refresh**: resolved an issue causing multiple node refreshes on application startup.  
+  The system now performs a single initialization at boot, followed by periodic refreshes according to the configured interval.
+
+---
+
 ## [1.6.1] – 2025-06-16
 
 ### Added

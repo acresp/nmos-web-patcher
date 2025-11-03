@@ -2,97 +2,235 @@
 {% block title %}NMOS Web Patcher{% endblock %}
 
 {% block content %}
-
-<!-- Sticky Header -->
 <div class="sticky-top bg-white py-3 shadow-sm z-top border-bottom">
-    <h1 class="text-center mb-3">NMOS Web Patcher</h1>
+  <h1 class="text-center mb-3">NMOS Web Patcher</h1>
 
-    <div class="text-center mb-2">
-        <div class="d-inline-block me-2">
-            <button class="btn btn-danger btn-lg w-100 px-4" onclick="changeSource()">TAKE</button>
-        </div>
-        <div class="d-inline-block ms-2">
-            <button class="btn btn-outline-secondary btn-lg w-100 px-4" onclick="disconnectReceiver()">DISCONNECT</button>
-        </div>
-        <div class="d-inline-block ms-2">
-            <a href="{{ url_for('settings.settings') }}" class="btn btn-outline-info btn-lg w-100 px-4">Settings</a>
-        </div>
+  <div class="text-center mb-2">
+    <div class="d-inline-block me-2">
+      <button class="btn btn-danger btn-lg w-100 px-4" onclick="changeSource()">TAKE</button>
     </div>
+    <div class="d-inline-block ms-2">
+      <button class="btn btn-outline-secondary btn-lg w-100 px-4" onclick="disconnectReceiver()">DISCONNECT</button>
+    </div>
+    <div class="d-inline-block ms-2">
+      <a href="{{ url_for('settings.settings') }}" class="btn btn-outline-info btn-lg w-100 px-4">Settings</a>
+    </div>
+  </div>
 
-    <div class="text-center text-muted small mb-2">
-        🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
-    </div>
-    
-<!-- Selected Info -->
-<div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">
+  <div class="text-center text-muted small mb-2">
+    🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
+  </div>
+
+  <div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">
     <div><strong>Selected Receiver:</strong> <span id="selected-receiver">None</span></div>
     <div><strong>Current Sender:</strong><br><span id="current-sender">Unknown</span></div>
     <div><strong>Selected Source:</strong> <span class="text-danger fw-bold" id="selected-source">None</span></div>
+  </div>
+
+  <div class="text-center" id="success-message"></div>
 </div>
 
-    <div class="text-center" id="success-message"></div>
-
-
-</div>
-
-<!-- Main content: Destinations and Sources -->
 <div class="row mt-4">
-    <div class="col-md-5">
-        <h2>Destinations</h2>
-        <div id="receivers-list">
-            {% for group in receivers|groupby('node_name') %}
-                <div class="mb-2">
-                    <button class="btn btn-sm btn-secondary"
-                            type="button"
-                            data-label="{{ group.grouper }}"
-                            onclick="toggleList(this)">
-                        ▶ {{ group.grouper }}
-                    </button>
-                    <ul class="list-group mt-1 d-none">
-                        {% for receiver in group.list %}
-                            <li class="list-group-item {{ receiver.type }}"
-                                data-id="{{ receiver.id }}"
-                                onclick="selectReceiver('{{ receiver.id }}', this)">
-                                <strong>{{ receiver.label }}</strong>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endfor %}
+  <!-- RECEIVERS -->
+  <div class="col-md-5">
+    <h2>Destinations</h2>
+    {% for node_name, essences in grouped_receivers.items() %}
+      <div class="mb-4">
+        <button class="btn btn-sm btn-secondary node-toggle w-100 text-start" type="button" onclick="toggleNode(this)">
+          <span class="arrow">▸</span> <strong>{{ node_name }}</strong>
+        </button>
+        <div class="node-section mt-2 ms-3 d-none">
+          {% for essence in ['video', 'audio', 'ancillary'] %}
+            {% set items = essences.get(essence, []) %}
+            <div class="mb-2">
+              <button class="btn btn-sm btn-outline-dark w-100 text-start essence-toggle" type="button" onclick="toggleEssence(this)">
+                <span class="arrow">▸</span> {{ essence|capitalize }}
+              </button>
+              <ul class="list-group mt-1 ms-3 d-none">
+                {% for r in items %}
+                  <li class="list-group-item {{ r.type }}" data-id="{{ r.id }}" data-type="{{ r.type }}" onclick="onReceiverClick('{{ r.id }}', this)">
+                    <strong>{{ r.label }}</strong>
+                  </li>
+                {% endfor %}
+                {% if items|length == 0 %}
+                  <li class="list-group-item text-muted small fst-italic">No {{ essence }} destinations</li>
+                {% endif %}
+              </ul>
+            </div>
+          {% endfor %}
         </div>
-    </div>
+      </div>
+    {% endfor %}
+  </div>
 
-    <div class="col-md-5 offset-md-2">
-        <h2>Sources</h2>
-        <div id="sources-list">
-            {% for group in sources|groupby('node_name') %}
-                <div class="mb-2">
-                    <button class="btn btn-sm btn-secondary"
-                            type="button"
-                            data-label="{{ group.grouper }}"
-                            onclick="toggleList(this)">
-                        ▶ {{ group.grouper }}
-                    </button>
-                    <ul class="list-group mt-1 d-none">
-                        {% for source in group.list %}
-                            <li class="list-group-item {{ source.type }}"
-                                data-id="{{ source.id }}"
-                                onclick="selectSource('{{ source.id }}', this)">
-                                <strong>{{ source.label }}</strong>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endfor %}
+  <!-- SOURCES -->
+  <div class="col-md-5 offset-md-2">
+    <h2>Sources</h2>
+    {% for node_name, essences in grouped_sources.items() %}
+      <div class="mb-4">
+        <button class="btn btn-sm btn-secondary node-toggle w-100 text-start" type="button" onclick="toggleNode(this)">
+          <span class="arrow">▸</span> <strong>{{ node_name }}</strong>
+        </button>
+        <div class="node-section mt-2 ms-3 d-none">
+          {% for essence in ['video', 'audio', 'ancillary'] %}
+            {% set items = essences.get(essence, []) %}
+            <div class="mb-2">
+              <button class="btn btn-sm btn-outline-dark w-100 text-start essence-toggle" type="button" onclick="toggleEssence(this)">
+                <span class="arrow">▸</span> {{ essence|capitalize }}
+              </button>
+              <ul class="list-group mt-1 ms-3 d-none">
+                {% for s in items %}
+                  <li class="list-group-item {{ s.type }}" data-id="{{ s.id }}" data-type="{{ s.type }}" onclick="onSourceClick('{{ s.id }}', this)">
+                    <strong>{{ s.label }}</strong>
+                  </li>
+                {% endfor %}
+                {% if items|length == 0 %}
+                  <li class="list-group-item text-muted small fst-italic">No {{ essence }} sources</li>
+                {% endif %}
+              </ul>
+            </div>
+          {% endfor %}
         </div>
-    </div>
+      </div>
+    {% endfor %}
+  </div>
 </div>
 
-<script>
-  const initialReceivers = {{ receivers | tojson }};
-  const initialSources = {{ sources | tojson }};
-  const initialNodes = {{ nodes | tojson }};
-</script>
+<!-- Styles -->
+<style>
+.node-toggle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+.essence-toggle {
+  font-size: 1rem;
+  padding: 5px 10px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+.node-section {
+  margin-top: 6px;
+  border-left: 3px solid #d0d0d0;
+  padding-left: 10px;
+}
+.list-group-item.active-source,
+.list-group-item.active-receiver {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: #fff;
+}
+#success-message {
+  min-height: 24px;
+  transition: opacity 0.5s ease;
+  font-weight: bold;
+  margin-top: 8px;
+}
+</style>
 
-<script src="{{ url_for('static', filename='script.js') }}?v=1.2.1"></script>
+<!-- JS -->
+<script>
+function toggleNode(btn) {
+  const section = btn.parentElement.querySelector('.node-section');
+  const arrow = btn.querySelector('.arrow');
+  const isOpen = !section.classList.contains('d-none');
+  section.classList.toggle('d-none', isOpen);
+  arrow.textContent = isOpen ? '▸' : '▼';
+}
+
+function toggleEssence(btn) {
+  const section = btn.parentElement.querySelector('ul');
+  const arrow = btn.querySelector('.arrow');
+  const isOpen = !section.classList.contains('d-none');
+  section.classList.toggle('d-none', isOpen);
+  arrow.textContent = isOpen ? '▸' : '▼';
+}
+
+async function onReceiverClick(id, el) {
+  document.querySelectorAll('.list-group-item.active-receiver').forEach(i => i.classList.remove('active-receiver'));
+  el.classList.add('active-receiver');
+  window.selectedReceiverId = id;
+  document.getElementById('selected-receiver').textContent = el.textContent.trim();
+
+  try {
+    const res = await fetch(`/get_current_sender/${id}`);
+    const data = await res.json();
+    document.getElementById('current-sender').textContent = data.label || "None";
+  } catch {
+    document.getElementById('current-sender').textContent = "Unknown";
+  }
+}
+
+function onSourceClick(id, el) {
+  document.querySelectorAll('.list-group-item.active-source').forEach(i => i.classList.remove('active-source'));
+  el.classList.add('active-source');
+  window.selectedSourceId = id;
+  document.getElementById('selected-source').textContent = el.textContent.trim();
+}
+
+async function changeSource() {
+  if (!selectedReceiverId || !selectedSourceId) {
+    showMessage("Select both a receiver and a source first", true);
+    return;
+  }
+
+  const payload = { receiver_id: selectedReceiverId, sender_id: selectedSourceId };
+
+  try {
+    const response = await fetch("/change_source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (response.ok && result.status === "success") {
+      showMessage("Take successful!");
+      setTimeout(() => onReceiverClick(selectedReceiverId, document.querySelector(`[data-id='${selectedReceiverId}']`)), 600);
+    } else {
+      showMessage("Error during TAKE: " + (result.message || "unknown error"), true);
+    }
+  } catch (err) {
+    showMessage("Connection error: " + err, true);
+  }
+}
+
+async function disconnectReceiver() {
+  if (!selectedReceiverId) {
+    showMessage("Select a receiver first", true);
+    return;
+  }
+
+  const payload = { receiver_id: selectedReceiverId };
+  try {
+    const response = await fetch("/disconnect_receiver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (response.ok && result.status === "success") {
+      showMessage("Receiver disconnected.");
+      onReceiverClick(selectedReceiverId, document.querySelector(`[data-id='${selectedReceiverId}']`));
+    } else {
+      showMessage("Error disconnecting receiver: " + (result.message || "unknown error"), true);
+    }
+  } catch (err) {
+    showMessage("Connection error: " + err, true);
+  }
+}
+
+function showMessage(text, error = false) {
+  const msg = document.getElementById("success-message");
+  msg.textContent = text;
+  msg.style.color = error ? "red" : "green";
+  msg.style.opacity = "1";
+
+  setTimeout(() => {
+    msg.style.transition = "opacity 0.5s ease";
+    msg.style.opacity = "0";
+    setTimeout(() => { msg.textContent = ""; }, 500);
+  }, 3000);
+}
+</script>
 {% endblock %}

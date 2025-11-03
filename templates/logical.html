@@ -12,7 +12,15 @@
   </div>
 </div>
 
-<div class="card mb-4">
+{% if message %}
+  <div class="container mb-3">
+    <div class="alert alert-{{ 'danger' if message_type == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+      {{ message }}
+    </div>
+  </div>
+{% endif %}
+
+<div class="card mb-4 shadow-sm">
   <div class="card-header d-flex justify-content-between align-items-center bg-light">
     <strong class="text-dark">Create a logical group</strong>
     <div>
@@ -83,33 +91,26 @@
               </tr>
             </thead>
             <tbody>
-  {% for name, entries in items.items() %}
-  <tr id="row-{{ entry_type }}-{{ name }}">
-    <td class="id-cell" data-id="{{ entries.id }}">{{ entries.id }}</td>
-    <td class="name-cell">{{ name }}</td>
-    <td class="video-cell select-cell" data-id="{{ entries.video or '' }}">{{ entries.video or '' }}</td>
-    <td class="audio-cell select-cell" data-id="{{ entries.audio or '' }}">{{ entries.audio or '' }}</td>
-    <td class="data-cell select-cell" data-id="{{ entries.data or '' }}">{{ entries.data or '' }}</td>
-    <td class="action-cell">
-      <div class="d-flex flex-wrap gap-2">
-        <button type="button"
-                class="btn btn-sm btn-outline-primary"
-                onclick="editRow('{{ entry_type }}', '{{ name }}')" style="margin-right: 8px;">Edit</button>
-
-        <form method="post"
-              action="/settings/delete_logical_id"
-              onsubmit="return confirm('Delete group {{ name }}?');"
-              class="m-0">
-          <input type="hidden" name="logical_name" value="{{ name }}">
-          <input type="hidden" name="entry_type" value="{{ entry_type }}">
-          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-        </form>
-      </div>
-    </td>
-  </tr>
-  {% endfor %}
-</tbody>
-
+              {% for name, entries in items.items() %}
+              <tr id="row-{{ entry_type }}-{{ name }}">
+                <td class="id-cell" data-id="{{ entries.id }}">{{ entries.id }}</td>
+                <td class="name-cell">{{ name }}</td>
+                <td class="video-cell select-cell" data-id="{{ entries.video or '' }}">{{ entries.video or '' }}</td>
+                <td class="audio-cell select-cell" data-id="{{ entries.audio or '' }}">{{ entries.audio or '' }}</td>
+                <td class="data-cell select-cell" data-id="{{ entries.data or '' }}">{{ entries.data or '' }}</td>
+                <td class="action-cell">
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="editRow('{{ entry_type }}', '{{ name }}')" style="margin-right: 8px;">Edit</button>
+                    <form method="post" action="/settings/delete_logical_id" onsubmit="return confirm('Delete group {{ name }}?');" class="m-0">
+                      <input type="hidden" name="logical_name" value="{{ name }}">
+                      <input type="hidden" name="entry_type" value="{{ entry_type }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
           </table>
         </div>
       {% endif %}
@@ -121,17 +122,26 @@
 const senders = {{ senders | tojson | safe }};
 const receivers = {{ receivers | tojson | safe }};
 
+// Auto-dismiss alert after 5 seconds
+setTimeout(() => {
+  const alert = document.querySelector('.alert');
+  if (alert) {
+    alert.classList.remove('show');
+    setTimeout(() => alert.remove(), 500);
+  }
+}, 5000);
+
 function editRow(type, name) {
   const row = document.getElementById(`row-${type}-${name}`);
   const formId = `form-${type}-${name}`;
   const resources = (type === 'sources') ? senders : receivers;
 
   const current = {
-    id:     row.querySelector('.id-cell').dataset.id,
-    name:   row.querySelector('.name-cell').innerText.trim(),
-    video:  row.querySelector('.video-cell').dataset.id,
-    audio:  row.querySelector('.audio-cell').dataset.id,
-    data:   row.querySelector('.data-cell').dataset.id
+    id: row.querySelector('.id-cell').dataset.id,
+    name: row.querySelector('.name-cell').innerText.trim(),
+    video: row.querySelector('.video-cell').dataset.id,
+    audio: row.querySelector('.audio-cell').dataset.id,
+    data: row.querySelector('.data-cell').dataset.id
   };
 
   const form = document.createElement('form');
@@ -148,14 +158,21 @@ function editRow(type, name) {
       if (field === "data") return essence.includes("ancillary") || essence.includes("data");
     });
 
-    const opts = ['<option value="">-- None --</option>'];
+    const opts = [];
+    if (type === "sources") {
+      opts.push('<option value="disconnect">Disconnect</option>');
+    }
+    opts.push('<option value="">-- None --</option>');
+
     list.forEach(item => {
       const sel = item.id === selected ? 'selected' : '';
       const label = item.label || item.id;
       opts.push(`<option value="${item.id}" ${sel}>${label} (${item.id.slice(0,6)})</option>`);
     });
 
-    return `<select name="${field}" class="form-select form-select-sm" form="${formId}">${opts.join("")}</select>`;
+    return `<select name="${field}" class="form-select form-select-sm" form="${formId}">
+              ${opts.join("")}
+            </select>`;
   };
 
   row.querySelector('.id-cell').innerHTML = `<input type="number" name="logical_id" class="form-control form-control-sm" value="${current.id}" form="${formId}">`;
@@ -184,29 +201,37 @@ function populateEssenceDropdowns() {
     data: document.getElementById("data-select")
   };
 
+  // On garde la 1ère option (None), on supprime le reste
   Object.values(selects).forEach(sel => {
     while (sel.options.length > 1) sel.remove(1);
   });
 
+  // Si c’est une source, on ajoute “Disconnect” juste après le premier élément
+  if (listType === "sources") {
+    Object.values(selects).forEach(sel => {
+      const disconnectOpt = document.createElement("option");
+      disconnectOpt.value = "disconnect";
+      disconnectOpt.textContent = "Disconnect";
+      sel.add(disconnectOpt);
+    });
+  }
+
+  // On groupe par node
   const grouped = {};
   list.forEach(item => {
-    const node = (
-      item.device?.label ||
-      item.node_name ||
-      item.label ||
-      "Unknown Node"
-    );
+    const node = item.device?.label || item.node_name || item.label || "Unknown Node";
     if (!grouped[node]) grouped[node] = [];
     grouped[node].push(item);
   });
 
+  // On ajoute les options groupées
   for (const [nodeName, items] of Object.entries(grouped)) {
-    const groupHeader = (label) => {
+    const groupHeader = (select) => {
       const opt = document.createElement("option");
       opt.textContent = `-- ${nodeName} --`;
       opt.disabled = true;
       opt.style = "font-weight: bold; background: #f0f0f0;";
-      label.add(opt);
+      select.add(opt);
     };
 
     const addItem = (select, item) => {
@@ -218,25 +243,14 @@ function populateEssenceDropdowns() {
 
     const videoItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("video"));
     const audioItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("audio"));
-    const dataItems  = items.filter(i => {
+    const dataItems = items.filter(i => {
       const type = (i.essence_type || "").toLowerCase();
       return type.includes("ancillary") || type.includes("data");
     });
 
-    if (videoItems.length) {
-      groupHeader(selects.video);
-      videoItems.forEach(i => addItem(selects.video, i));
-    }
-
-    if (audioItems.length) {
-      groupHeader(selects.audio);
-      audioItems.forEach(i => addItem(selects.audio, i));
-    }
-
-    if (dataItems.length) {
-      groupHeader(selects.data);
-      dataItems.forEach(i => addItem(selects.data, i));
-    }
+    if (videoItems.length) { groupHeader(selects.video); videoItems.forEach(i => addItem(selects.video, i)); }
+    if (audioItems.length) { groupHeader(selects.audio); audioItems.forEach(i => addItem(selects.audio, i)); }
+    if (dataItems.length)  { groupHeader(selects.data);  dataItems.forEach(i => addItem(selects.data,  i)); }
   }
 }
 

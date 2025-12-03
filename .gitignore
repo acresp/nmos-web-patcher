@@ -33,3 +33,5 @@ Thumbs.db
 
 # Python dotenv
 .env
+package.json
+package-lock.json

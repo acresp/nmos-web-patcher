@@ -32,40 +32,39 @@ def extract_sort_key(item):
 
     return (999, 999, 999, label)
 
-
 def group_by_node_and_type(items):
     grouped = defaultdict(lambda: defaultdict(list))
     for item in items:
         node_name = item.get("node_name", "Unknown Node")
-        essence_type = item.get("type") or item.get("essence_type") or get_resource_type(item)
+        essence_type = (
+            item.get("type")
+            or item.get("essence")
+            or item.get("essence_type")
+            or get_resource_type(item)
+        )
         grouped[node_name][essence_type].append(item)
     return grouped
-
 
 @main_bp.route('/')
 def index():
     cache = read_cache()
-    receivers = cache.get('receivers', [])
-    sources   = cache.get('sources', [])
 
-    for r in receivers:
-        r["type"] = get_resource_type(r)
-    for s in sources:
-        s["type"] = get_resource_type(s)
+    receivers = cache.get('receivers', [])
+    senders   = cache.get('senders') or cache.get('sources', [])
 
     grouped_receivers = group_by_node_and_type(sorted(receivers, key=extract_sort_key))
-    grouped_sources   = group_by_node_and_type(sorted(sources, key=extract_sort_key))
+    grouped_senders   = group_by_node_and_type(sorted(senders,   key=extract_sort_key))
 
     nodes = load_nodes()
 
     return render_template(
         'index.html',
         grouped_receivers=grouped_receivers,
-        grouped_sources=grouped_sources,
+        grouped_sources=grouped_senders,
         receivers=receivers,
-        sources=sources,
+        sources=senders,
         nodes=nodes,
         node_count=len(nodes),
         receiver_count=len(receivers),
-        source_count=len(sources)
+        source_count=len(senders)
     )

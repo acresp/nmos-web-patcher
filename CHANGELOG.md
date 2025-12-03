@@ -7,6 +7,15 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.7.1] – 2025-12-03
+
+### Changed
+
+- **Essence Detection**: improved reliability by determining essence type using /flows
+- **Code naming consistency**: changed some "sources" terminology to "senders" to avoid misunderstanding...
+
+---
+
 ## [1.7.0] – 2025-11-03
 
 ### Added

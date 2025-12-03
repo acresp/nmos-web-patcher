@@ -50,8 +50,10 @@ def take_logical():
 
     logical = load_logical_ids()
 
-    source_name = next((name for name, val in logical.get("sources", {}).items() if val.get("id") == src_id), None)
-    destination_name = next((name for name, val in logical.get("receivers", {}).items() if val.get("id") == dest_id), None)
+    source_name = next((name for name, val in logical.get("senders", {}).items()
+                        if val.get("id") == src_id), None)
+    destination_name = next((name for name, val in logical.get("receivers", {}).items()
+                             if val.get("id") == dest_id), None)
 
     if not source_name or not destination_name:
         return jsonify({"status": "error", "message": "Invalid src or dest ID"}), 404
@@ -100,7 +102,6 @@ def take_logical():
         "patched": patched
     })
 
-# API List Function
 @restapi_bp.route("/api/list", methods=["GET"])
 @rest_api_enabled_only()
 def list_logical_groups():
@@ -108,26 +109,25 @@ def list_logical_groups():
 
     try:
         logical = load_logical_ids()
-        sources = [
+
+        senders = [
             {"id": val.get("id"), "name": name}
-            for name, val in logical.get("sources", {}).items()
+            for name, val in logical.get("senders", {}).items()
         ]
+
         receivers = [
             {"id": val.get("id"), "name": name}
             for name, val in logical.get("receivers", {}).items()
         ]
+
         return jsonify({
             "status": "ok",
-            "sources": sorted(sources, key=lambda x: x["id"]),
+            "senders": sorted(senders, key=lambda x: x["id"]),
             "receivers": sorted(receivers, key=lambda x: x["id"])
         })
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-    
-# API Disconnect Function
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @restapi_bp.route("/api/disconnect", methods=["GET"])
 @rest_api_enabled_only()
 def disconnect_logical():
@@ -145,7 +145,7 @@ def disconnect_logical():
         return jsonify({"status": "error", "message": "Invalid dest ID"}), 400
 
     logical = load_logical_ids()
-    dest_name = next((name for name, val in logical.get("receivers", {}).items()
+    dest_name = next((name for name, val in logical["receivers"].items()
                       if val.get("id") == dest_id), None)
 
     if not dest_name:
@@ -183,7 +183,6 @@ def disconnect_logical():
         "disconnected": result
     })
 
-# API Take_Many Function
 @restapi_bp.route("/api/take_many", methods=["GET"])
 @rest_api_enabled_only()
 def take_many():
@@ -204,7 +203,8 @@ def take_many():
 
     logical = load_logical_ids()
 
-    src_name = next((name for name, val in logical["sources"].items() if val.get("id") == src_id), None)
+    src_name = next((name for name, val in logical["senders"].items()
+                     if val.get("id") == src_id), None)
     if not src_name:
         return jsonify({"status": "error", "message": "Invalid source ID"}), 404
 
@@ -215,7 +215,8 @@ def take_many():
     responses = []
 
     for dest_id in dest_ids:
-        dest_name = next((name for name, val in logical["receivers"].items() if val.get("id") == dest_id), None)
+        dest_name = next((name for name, val in logical["receivers"].items()
+                          if val.get("id") == dest_id), None)
 
         if not dest_name:
             responses.append({
@@ -265,7 +266,6 @@ def take_many():
         "results": responses
     })
 
-# API Dest Status Function
 @restapi_bp.route("/api/status", methods=["GET"])
 @rest_api_enabled_only()
 def status_logical():
@@ -299,6 +299,7 @@ def status_logical():
 
     active_result = {}
     active_sender_ids = {}
+
     for essence in ["video", "audio", "data"]:
         receiver_uuid = logical_receiver.get(essence)
         if not receiver_uuid:
@@ -316,19 +317,21 @@ def status_logical():
             r = requests.get(url, timeout=2)
             if r.status_code == 200:
                 sender_id = r.json().get("sender_id")
-                if sender_id:
-                    active_sender_ids[essence] = sender_id
-                    active_result[essence] = {"sender_id": sender_id}
-                else:
-                    active_result[essence] = {"sender_id": None}
+                active_sender_ids[essence] = sender_id
+                active_result[essence] = {"sender_id": sender_id}
             else:
                 active_result[essence] = {"sender_id": None, "error": "request failed"}
         except Exception as e:
             active_result[essence] = {"sender_id": None, "error": str(e)}
 
     matched_source = None
-    for source_name, source_map in logicals["sources"].items():
-        if all(source_map.get(k) == active_sender_ids.get(k) for k in ["video", "audio", "data"] if source_map.get(k)):
+    for source_name, source_map in logicals["senders"].items():
+        ok = True
+        for essence in ["video", "audio", "data"]:
+            if source_map.get(essence) and source_map.get(essence) != active_sender_ids.get(essence):
+                ok = False
+                break
+        if ok:
             matched_source = source_name
             break
 

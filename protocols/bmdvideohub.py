@@ -11,9 +11,9 @@ class VideohubEmulator:
     def __init__(self, host='0.0.0.0', port=9990):
         self.host = host
         self.port = port
-        self.inputs = {}
-        self.outputs = {}
-        self.routing = {}
+        self.inputs = {}   # logical senders (inputs)
+        self.outputs = {}  # logical receivers (outputs)
+        self.routing = {}  # {output_id: input_id}
         self.server = None
         self.clients = set()
         self._running_task = None
@@ -21,16 +21,29 @@ class VideohubEmulator:
 
     def load_labels(self):
         logicals = load_logical_ids()
-        sources = logicals.get("sources", {})
-        receivers = logicals.get("receivers", {})
 
-        self.inputs = {v["id"]: k for k, v in sources.items() if "id" in v and k}
-        self.outputs = {v["id"]: k for k, v in receivers.items() if "id" in v and k}
-        self.routing = {}
+        senders   = logicals.get("senders", {}) or {}
+        receivers = logicals.get("receivers", {}) or {}
+
+        self.inputs = {
+            v["id"]: k
+            for k, v in senders.items()
+            if isinstance(v.get("id"), int) and k
+        }
+
+        self.outputs = {
+            v["id"]: k
+            for k, v in receivers.items()
+            if isinstance(v.get("id"), int) and k
+        }
+
+        print(f"[BMD PROTOCOL] Labels loaded: {len(self.inputs)} inputs, {len(self.outputs)} outputs")
 
     async def start(self):
+        # attendre que le cache NMOS soit prêt
         await asyncio.to_thread(wait_cache_ready, 30)
 
+        # synchroniser avec NMOS + logical
         await self.sync_from_cache()
         await self.broadcast_routing_update()
 
@@ -124,7 +137,7 @@ class VideohubEmulator:
         return "INPUT LABELS:\n" + "\n".join(lines)
 
     def output_labels(self):
-        lines = [f"{i} {name}" for i, (i_id, name) in enumerate(sorted(self.outputs.items()))]
+        lines = [f"{i} {name}" for i, (o_id, name) in enumerate(sorted(self.outputs.items()))]
         return "OUTPUT LABELS:\n" + "\n".join(lines)
 
     def output_routing(self):
@@ -209,14 +222,17 @@ class VideohubEmulator:
             cache = read_cache()
             logicals = load_logical_ids()
 
+            # ressources NMOS unifiées
             receivers_cache = cache.get("receivers", [])
-            sources_cache = cache.get("sources", [])
+            senders_cache   = cache.get("senders") or cache.get("sources", [])
 
             receivers_by_id = {r.get("id"): r for r in receivers_cache if r.get("id")}
-            sources_by_uuid = {s.get("id"): s for s in sources_cache if s.get("id")}
+            # (non utilisé mais laissé si besoin de debug futur)
+            senders_by_id   = {s.get("id"): s for s in senders_cache if s.get("id")}
 
+            # map UUID NMOS -> ID logical input
             uuid_to_input_id = {}
-            for src_name, src_info in (logicals.get("sources") or {}).items():
+            for src_name, src_info in (logicals.get("senders") or {}).items():
                 src_input_id = src_info.get("id")
                 if src_input_id is None:
                     continue

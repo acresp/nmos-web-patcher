@@ -58,7 +58,6 @@ def api_disconnect_receiver():
         return jsonify({"status": "error", "message": "Missing receiver ID"}), 400
 
     from services.cache import read_cache
-    from services.data_loader import load_nodes
 
     nodes = load_nodes()
     cache = read_cache()
@@ -113,7 +112,8 @@ def get_current_sender(receiver_id):
                 "message": "Receiver has no active sender"
             }), 200
 
-        sender_obj = next((s for s in cache.get("sources", []) if s.get("id") == sender_id), None)
+        senders_list = cache.get("senders") or cache.get("sources", [])
+        sender_obj = next((s for s in senders_list if s.get("id") == sender_id), None)
         label = sender_obj.get("label", sender_id) if sender_obj else sender_id
 
         return jsonify({
@@ -125,10 +125,13 @@ def get_current_sender(receiver_id):
     except Exception as e:
         print(f"[WARN] Fallback to cache for receiver {receiver_id}: {e}")
         sender_id = receiver_obj.get("subscription", {}).get("sender_id")
+
+        senders_list = cache.get("senders") or cache.get("sources", [])
         sender_label = next(
-            (s.get("label") for s in cache.get("sources", []) if s.get("id") == sender_id),
+            (s.get("label") for s in senders_list if s.get("id") == sender_id),
             sender_id
         )
+
         return jsonify({
             "label": sender_label or "Unknown",
             "sender_id": sender_id,

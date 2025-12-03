@@ -7,12 +7,14 @@ import os
 import time
 
 def load_nodes():
-    path = os.path.join(os.path.dirname(__file__), '..', 'data', 'nodes.json')
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    path = os.path.join(project_root, "nodes.json")
+
     try:
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             return json.load(f)
     except Exception as e:
-        print(f"[ERROR] Failed to load nodes.json: {e}")
+        print(f"[ERROR] Failed to load nodes.json at {path}: {e}")
         return []
 
 def safe_get_json(url, timeout=3, retries=2, delay=0.25):
@@ -49,81 +51,89 @@ def detect_nmos_and_connection_versions(node_url, timeout=3):
         try:
             url = f"{base}{endpoint}/"
             r = requests.get(url, timeout=timeout)
+
             if r.status_code != 200:
                 return None
-            # JSON case (expected NMOS response: ["v1.0", "v1.1", "v1.2", "v1.3"])
+
             try:
                 data = r.json()
                 if isinstance(data, list) and data:
                     versions_found = [
-                        re.sub(r'[^v\d\.]', '', v).strip()
+                        re.sub(r'[^v\d\.]', '', v)
                         for v in data if isinstance(v, str)
                     ]
                     valid = [v for v in versions_found if re.match(r'^v\d+\.\d+$', v)]
                     if valid:
                         return sorted(set(valid))[-1]
             except ValueError:
-                pass  # not JSON, continue to HTML parsing
-            # HTML fallback (e.g. some devices return a directory listing)
+                pass
+
             return parse_versions_from_response(r.text)
-        except Exception as e:
-            print(f"[DEBUG] Failed to query {endpoint}: {e}")
+
+        except Exception:
             return None
         
-    # Detect IS-04 (Node)
-    node_ver = get_highest_version(node_url, "/x-nmos/node") or get_highest_version(node_url, "/node")
+    node_ver = get_highest_version(node_url, "/x-nmos/node") \
+            or get_highest_version(node_url, "/node")
+
     if node_ver:
         versions["nmos"] = node_ver
 
-    # Detect IS-05 (Connection)
-    conn_ver = get_highest_version(node_url, "/x-nmos/connection") or get_highest_version(node_url, "/connection")
+    conn_ver = get_highest_version(node_url, "/x-nmos/connection") \
+            or get_highest_version(node_url, "/connection")
+
     if conn_ver:
         versions["connection"] = conn_ver
 
-    # Safety defaults
     if not versions["nmos"]:
         versions["nmos"] = "v1.0"
+
     if not versions["connection"]:
         versions["connection"] = "v1.0"
 
     return versions
 
-def get_resource_type(resource):
-    """Déduit le type d’une ressource NMOS (video/audio/ancillary)."""
-    if not isinstance(resource, dict):
-        return "invalid"
+def get_resource_type(resource, flows_index=None):
 
-    fmt = str(resource.get('format', '')).lower()
-    label = str(resource.get('label', '')).lower()
-    description = str(resource.get('description', '')).lower()
+    flow_id = resource.get("flow_id")
+    if flows_index and flow_id in flows_index:
+        flow = flows_index[flow_id]
+        fmt = flow.get("format", "").lower()
+        mt = flow.get("media_type", "").lower()
 
-    caps = resource.get('caps', {})
-    media_types = []
+        # Audio
+        if "audio" in fmt or mt.startswith("audio/"):
+            return "audio"
+
+        # ANC SMPTE291
+        if "data" in fmt and ("smpte291" in mt or "291" in mt):
+            return "ancillary"
+
+        # Vidéo
+        if "video" in fmt or mt.startswith("video/"):
+            return "video"
+
+        return "unknown"
+
+    caps = resource.get("caps", {})
     if isinstance(caps, dict):
-        mt = caps.get('media_types')
-        if isinstance(mt, list):
-            media_types = [m.lower() for m in mt if isinstance(m, str)]
+        mts = [m.lower() for m in caps.get("media_types", [])]
 
-    clues = " ".join([fmt] + media_types + [label, description])
+        # Audio
+        if any(m.startswith("audio/") for m in mts):
+            return "audio"
 
-    if "audio" in clues:
-        return "audio"
-    if "smpte291" in clues or "anc" in clues or "metadata" in clues or "data" in clues:
-        return "ancillary"
-    if "video/raw" in clues or ("video" in clues and "smpte291" not in clues):
-        return "video"
+        # ANC SMPTE291
+        if any("smpte291" in m or "291" in m for m in mts):
+            return "ancillary"
 
-    if any(x in label for x in ["aud", "aes"]) or "audio" in description:
-        return "audio"
-    if any(x in label for x in ["anc", "data"]) or "anc" in description:
-        return "ancillary"
-    if any(x in label for x in ["vid", "pgm", "cam", "tx", "rx"]) or "video" in description:
-        return "video"
+        # Vidéo
+        if any(m.startswith("video/") and "smpte291" not in m for m in mts):
+            return "video"
 
     return "unknown"
 
 def build_url(base, version, resource):
-    """Construit une URL NMOS correcte."""
     base = base.rstrip('/')
     if base.endswith("/x-nmos") or "/x-nmos/" in base:
         return f"{base}/node/{version}/{resource}/"
@@ -142,41 +152,48 @@ def fetch_node_data(node, timeout=3):
         'ip': node.get('ip', node_url),
         'version': nmos_version,
         'receivers': [],
-        'sources': []
+        'sources': [],
+        'flows': []
     }
 
+    # Receivers
     try:
         rcv_url = build_url(node_url, nmos_version, 'receivers')
         rcv_json = safe_get_json(rcv_url, timeout=timeout)
         if isinstance(rcv_json, list):
             for item in rcv_json:
-                if isinstance(item, dict):
-                    item.update({
-                        'node_name': node['name'],
-                        'node_url': node_url,
-                        'versions': versions
-                    })
-                    data['receivers'].append(item)
-        else:
-            print(f"[WARNING] Unexpected receivers format from {node['name']}: {type(rcv_json)}")
+                item.update({
+                    'node_name': node['name'],
+                    'node_url': node_url,
+                    'versions': versions
+                })
+                data['receivers'].append(item)
     except Exception as e:
         print(f"[WARNING] Node {node['name']} receivers skipped: {e}")
 
+    # Senders
     try:
         snd_url = build_url(node_url, nmos_version, 'senders')
         snd_json = safe_get_json(snd_url, timeout=timeout)
         if isinstance(snd_json, list):
             for item in snd_json:
-                if isinstance(item, dict):
-                    item.update({
-                        'node_name': node['name'],
-                        'node_url': node_url,
-                        'versions': versions
-                    })
-                    data['sources'].append(item)
-        else:
-            print(f"[WARNING] Unexpected senders format from {node['name']}: {type(snd_json)}")
+                item.update({
+                    'node_name': node['name'],
+                    'node_url': node_url,
+                    'versions': versions
+                })
+                data['sources'].append(item)
     except Exception as e:
         print(f"[WARNING] Node {node['name']} senders skipped: {e}")
+
+    # FLOWS
+    try:
+        flow_url = build_url(node_url, nmos_version, 'flows')
+        flow_json = safe_get_json(flow_url, timeout=timeout)
+        if isinstance(flow_json, list):
+            for f in flow_json:
+                data['flows'].append(f)
+    except Exception as e:
+        print(f"[WARNING] Node {node['name']} flows skipped: {e}")
 
     return data

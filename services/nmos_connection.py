@@ -69,8 +69,8 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
     if receivers is None or sources is None:
         cache = read_cache()
         receivers = cache.get("receivers", [])
-        sources = cache.get("sources", [])
-        print(f"[CACHE] Using cached NMOS data: {len(receivers)} receivers, {len(sources)} sources")
+        sources = cache.get("senders") or cache.get("sources", [])
+        print(f"[CACHE] Using cached NMOS data: {len(receivers)} receivers, {len(sources)} senders")
 
     receivers, sources = _inject_metadata_from_nodes(receivers, sources, nodes)
 
@@ -86,8 +86,10 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
         own_session = True
 
     try:
-        sdp_url = _join_url(sender["node_url"],
-                            f"connection/{sender['versions']['connection']}/single/senders/{sender_id}/transportfile/")
+        sdp_url = _join_url(
+            sender["node_url"],
+            f"connection/{sender['versions']['connection']}/single/senders/{sender_id}/transportfile/"
+        )
         print(f"[TIMING] Fetching SDP from {sdp_url}")
         t0 = time.perf_counter()
         async with session.get(sdp_url, timeout=4) as resp:
@@ -108,8 +110,10 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
             "activation": {"mode": "activate_immediate"}
         }
 
-        patch_url_receiver = _join_url(receiver["node_url"],
-                                       f"connection/{receiver['versions']['connection']}/single/receivers/{receiver_id}/staged")
+        patch_url_receiver = _join_url(
+            receiver["node_url"],
+            f"connection/{receiver['versions']['connection']}/single/receivers/{receiver_id}/staged"
+        )
         print(f"[TIMING] Patching receiver {receiver_id}")
         t0 = time.perf_counter()
         async with session.patch(patch_url_receiver, json=patch_receiver, timeout=4) as r_patch:
@@ -118,9 +122,14 @@ async def change_source(nodes, receiver_id, sender_id, session=None, receivers=N
                 return {"status": "error", "message": msg, "code": r_patch.status}
         print(f"[TIMING] Receiver patched in {time.perf_counter() - t0:.3f}s")
 
-        patch_sender = {"activation": {"mode": "activate_immediate"}, "master_enable": True}
-        patch_url_sender = _join_url(sender["node_url"],
-                                     f"connection/{sender['versions']['connection']}/single/senders/{sender_id}/staged")
+        patch_sender = {
+            "activation": {"mode": "activate_immediate"},
+            "master_enable": True
+        }
+        patch_url_sender = _join_url(
+            sender["node_url"],
+            f"connection/{sender['versions']['connection']}/single/senders/{sender_id}/staged"
+        )
         print(f"[TIMING] Activating sender {sender_id}")
         t0 = time.perf_counter()
         async with session.patch(patch_url_sender, json=patch_sender, timeout=4) as s_patch:
@@ -154,7 +163,7 @@ def disconnect_receiver(nodes, receiver_id, receivers=None):
     if not receiver:
         return {"status": "error", "message": f"Receiver {receiver_id} not found in cache"}
 
-    # Payload IS-05 standard pour un disconnect propre (ajout du rtp_enable à false)
+    # Payload IS-05 standard pour un disconnect propre (rtp_enabled = False)
     patch_data = {
         "sender_id": None,
         "master_enable": False,

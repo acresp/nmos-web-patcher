@@ -3,37 +3,34 @@
 
 from flask import Blueprint, request, jsonify, render_template, redirect
 from services.data_loader import load_nodes, save_nodes
-from services.nmos_discovery import detect_nmos_and_connection_versions
+from services.nmos_discovery import detect_nmos_and_connection_versions, get_resource_type
 from services.cache import read_cache as load_cache
 from services.logical import load_logical_ids, save_logical_ids
 
 import json
 import asyncio
 import builtins
+from collections import defaultdict
+import re
 
 settings_bp = Blueprint('settings', __name__)
 
 @settings_bp.route('/settings', methods=['GET'])
 def settings():
     settings_data = load_settings()
-    refresh_interval = settings_data.get("refresh_interval")
-    patch_secondary = settings_data.get("patch_secondary")
-    enable_restapi = settings_data.get("enable_restapi")
-    enable_bmd_emulator = settings_data.get("enable_bmd_emulator")
-    enable_rosstalk_emulator = settings_data.get("enable_rosstalk_emulator")
 
     cache = load_cache()
-    senders = cache.get("sources", [])
+    senders = cache.get("senders") or cache.get("sources", [])
     receivers = cache.get("receivers", [])
 
     return render_template(
         'settings.html',
         nodes=load_nodes(),
-        refresh_interval=refresh_interval,
-        patch_secondary=patch_secondary,
-        enable_restapi=enable_restapi,
-        enable_bmd_emulator=enable_bmd_emulator,
-        enable_rosstalk_emulator=enable_rosstalk_emulator,
+        refresh_interval=settings_data.get("refresh_interval"),
+        patch_secondary=settings_data.get("patch_secondary"),
+        enable_restapi=settings_data.get("enable_restapi"),
+        enable_bmd_emulator=settings_data.get("enable_bmd_emulator"),
+        enable_rosstalk_emulator=settings_data.get("enable_rosstalk_emulator"),
         senders=senders,
         receivers=receivers
     )
@@ -81,7 +78,6 @@ def update_settings():
         old_bmd = settings_data.get("enable_bmd_emulator", False)
         old_ross = settings_data.get("enable_rosstalk_emulator", False)
 
-        # Update settings with new values
         settings_data["refresh_interval"] = int(data.get("refresh_interval", 600))
         settings_data["patch_secondary"] = bool(data.get("patch_secondary", False))
         settings_data["enable_restapi"] = bool(data.get("enable_restapi", False))
@@ -90,8 +86,6 @@ def update_settings():
 
         new_bmd = settings_data["enable_bmd_emulator"]
         new_ross = settings_data["enable_rosstalk_emulator"]
-
-        print("[DEBUG] Writing updated settings:", settings_data)
 
         with open("settings.json", "w") as f:
             json.dump(settings_data, f, indent=2)
@@ -105,13 +99,11 @@ def update_settings():
                     emulator = VideohubEmulator()
                     builtins.videohub_emulator = emulator
                     asyncio.run_coroutine_threadsafe(emulator.start(), loop)
-                    print("[SETTINGS] BMD Emulator started dynamically")
                 else:
                     emulator = getattr(builtins, "videohub_emulator", None)
                     if emulator:
                         asyncio.run_coroutine_threadsafe(emulator.stop(), loop)
                         builtins.videohub_emulator = None
-                        print("[SETTINGS] BMD Emulator stopped dynamically")
 
             if old_ross != new_ross:
                 if new_ross:
@@ -119,13 +111,11 @@ def update_settings():
                     emulator = RossTalkEmulator()
                     builtins.rosstalk_emulator = emulator
                     asyncio.run_coroutine_threadsafe(emulator.start(), loop)
-                    print("[SETTINGS] RossTalk Emulator started dynamically")
                 else:
                     emulator = getattr(builtins, "rosstalk_emulator", None)
                     if emulator:
                         asyncio.run_coroutine_threadsafe(emulator.stop(), loop)
                         builtins.rosstalk_emulator = None
-                        print("[SETTINGS] RossTalk Emulator stopped dynamically")
 
         return jsonify({"status": "success", "message": "Settings updated."})
 
@@ -135,20 +125,23 @@ def update_settings():
 
 @settings_bp.route('/logical', methods=['GET'], endpoint='logical_page')
 def logical_page():
-    from services.cache import read_cache
-    from services.logical import load_logical_ids
-    from services.nmos_discovery import get_resource_type
-    from collections import defaultdict
-    import re
+    cache = load_cache()
 
-    cache = read_cache()
-    senders = cache.get("sources", [])
+    senders = cache.get("senders") or cache.get("sources", [])
     receivers = cache.get("receivers", [])
 
     for s in senders:
-        s["essence_type"] = get_resource_type(s)
+        s["essence_type"] = (
+            s.get("type")
+            or s.get("essence")
+            or get_resource_type(s)
+        )
     for r in receivers:
-        r["essence_type"] = get_resource_type(r)
+        r["essence_type"] = (
+            r.get("type")
+            or r.get("essence")
+            or get_resource_type(r)
+        )
 
     def parse_label_sortkey(label):
         try:
@@ -161,32 +154,21 @@ def logical_page():
             return (999, 999, 999, 999, label.lower())
 
     senders.sort(key=lambda x: (
-        (x.get("device", {}) or {}).get("label") or
-        x.get("node_name") or
-        "zzz",
+        x.get("node_name") or "zzz",
         *parse_label_sortkey(x.get("label", ""))
     ))
 
     receivers.sort(key=lambda x: (
-        (x.get("device", {}) or {}).get("label") or
-        x.get("node_name") or
-        "zzz",
+        x.get("node_name") or "zzz",
         *parse_label_sortkey(x.get("label", ""))
     ))
 
     grouped_senders = defaultdict(list)
     for s in senders:
-        node_name = (
-            s.get("device", {}).get("label")
-            or s.get("node_name")
-            or s.get("label")
-            or "Unknown Node"
-        )
+        node_name = s.get("node_name") or "Unknown Node"
         grouped_senders[node_name].append(s)
 
     logical_ids = load_logical_ids()
-
-    print(f"[DEBUG] Logical page loaded: {len(senders)} senders, {len(receivers)} receivers (triés)")
 
     return render_template(
         "logical.html",
@@ -206,25 +188,28 @@ def next_contiguous_id(used_ids):
 @settings_bp.route("/settings/logical_ids", methods=["POST"])
 def add_logical_id():
     logical_name = request.form.get("logical_name")
-    entry_type = request.form.get("entry_type")
+    entry_type   = request.form.get("entry_type")
     video = request.form.get("video")
     audio = request.form.get("audio")
-    data = request.form.get("data")
+    data  = request.form.get("data")
     submitted_id = request.form.get("logical_id")
 
-    from services.cache import read_cache
-    from services.nmos_discovery import get_resource_type
-    from collections import defaultdict
-    import re
-
-    cache = read_cache()
-    senders = cache.get("sources", [])
+    cache = load_cache()
+    senders = cache.get("senders") or cache.get("sources", [])
     receivers = cache.get("receivers", [])
 
     for s in senders:
-        s["essence_type"] = get_resource_type(s)
+        s["essence_type"] = (
+            s.get("type")
+            or s.get("essence")
+            or get_resource_type(s)
+        )
     for r in receivers:
-        r["essence_type"] = get_resource_type(r)
+        r["essence_type"] = (
+            r.get("type")
+            or r.get("essence")
+            or get_resource_type(r)
+        )
 
     def parse_label_sortkey(label):
         try:
@@ -237,16 +222,12 @@ def add_logical_id():
             return (999, 999, 999, 999, label.lower())
 
     senders.sort(key=lambda x: (
-        (x.get("device", {}) or {}).get("label") or
-        x.get("node_name") or
-        "zzz",
+        x.get("node_name") or "zzz",
         *parse_label_sortkey(x.get("label", ""))
     ))
 
     receivers.sort(key=lambda x: (
-        (x.get("device", {}) or {}).get("label") or
-        x.get("node_name") or
-        "zzz",
+        x.get("node_name") or "zzz",
         *parse_label_sortkey(x.get("label", ""))
     ))
 
@@ -285,26 +266,18 @@ def add_logical_id():
     if data:
         logicals[entry_type][logical_name]["data"] = data
 
-    logicals[entry_type] = dict(
-        sorted(
-            logicals[entry_type].items(),
-            key=lambda kv: kv[1].get("id", 9999)
-        )
-    )
+    logicals[entry_type] = dict(sorted(
+        logicals[entry_type].items(),
+        key=lambda kv: kv[1].get("id", 9999)
+    ))
 
     save_logical_ids(logicals)
 
     emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
-
     if emulator and loop:
-        try:
-            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
-            print("[SETTINGS] BMD Emulator reloaded after logical add.")
-        except Exception as e:
-            print(f"[SETTINGS] Failed to notify emulator: {e}")
+        asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
 
-    print(f"[LOGICAL] Added {entry_type} logical '{logical_name}' with ID={group_id} (sorted save)")
     return render_template(
         "logical.html",
         senders=senders,
@@ -317,24 +290,18 @@ def add_logical_id():
 @settings_bp.route('/settings/delete_logical_id', methods=['POST'])
 def delete_logical_id():
     logical_name = request.form.get("logical_name")
-    entry_type = request.form.get("entry_type")
+    entry_type   = request.form.get("entry_type")
 
     logicals = load_logical_ids()
 
     if entry_type in logicals and logical_name in logicals[entry_type]:
         del logicals[entry_type][logical_name]
         save_logical_ids(logicals)
-        print(f"[INFO] Deleted logical group: {entry_type} → {logical_name}")
 
     emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
-
     if emulator and loop:
-        try:
-            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
-            print("[SETTINGS] BMD Emulator reloaded after logical update.")
-        except Exception as e:
-            print(f"[SETTINGS] Failed to notify emulator: {e}")
+        asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
 
     return redirect("/logical")
 
@@ -356,10 +323,8 @@ def update_logical_id():
 
     if logical_name != original_name:
         logicals[entry_type][logical_name] = logicals[entry_type].pop(original_name)
-    else:
-        logical_name = original_name
 
-    logicals[entry_type][logical_name]["id"] = logical_id
+    logicals[entry_type][logical_name]["id"]    = logical_id
     logicals[entry_type][logical_name]["video"] = video
     logicals[entry_type][logical_name]["audio"] = audio
     logicals[entry_type][logical_name]["data"]  = data
@@ -368,13 +333,8 @@ def update_logical_id():
 
     emulator = getattr(builtins, "videohub_emulator", None)
     loop = getattr(builtins, "main_event_loop", None)
-
     if emulator and loop:
-        try:
-            asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
-            print("[SETTINGS] BMD Emulator reloaded after logical update.")
-        except Exception as e:
-            print(f"[SETTINGS] Failed to notify emulator: {e}")
+        asyncio.run_coroutine_threadsafe(emulator.reload_and_broadcast(), loop)
 
     return redirect("/logical")
 
@@ -390,8 +350,6 @@ def load_settings():
     try:
         with open("settings.json", "r") as f:
             file_settings = json.load(f)
-            merged = {**default_settings, **file_settings}
-            return merged
-    except Exception as e:
-        print(f"[WARNING] Could not load settings.json, using defaults. Error: {e}")
+            return {**default_settings, **file_settings}
+    except:
         return default_settings

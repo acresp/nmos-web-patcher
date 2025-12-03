@@ -13,20 +13,23 @@ class RossTalkEmulator:
         self.server = None
         self.clients = set()
         self.routing = {}
-        self.inputs = {}
-        self.outputs = {}
+        self.inputs = {}   # logical sender_id -> name
+        self.outputs = {}  # logical receiver_id -> name
 
     def load_labels(self):
         logicals = load_logical_ids()
-        sources = logicals.get("sources", {})
+
+        senders   = logicals.get("senders", {})
         receivers = logicals.get("receivers", {})
 
         self.inputs = {
-            int(v["id"]): k for k, v in sources.items()
+            int(v["id"]): k
+            for k, v in senders.items()
             if "id" in v and isinstance(v["id"], int)
         }
         self.outputs = {
-            int(v["id"]): k for k, v in receivers.items()
+            int(v["id"]): k
+            for k, v in receivers.items()
             if "id" in v and isinstance(v["id"], int)
         }
 
@@ -77,13 +80,14 @@ class RossTalkEmulator:
                     if token.upper().startswith("D:"):
                         try:
                             d = int(token[2:])
-                        except:
+                        except Exception:
                             continue
                     elif token.upper().startswith("S:"):
                         try:
                             s = int(token[2:])
-                        except:
+                        except Exception:
                             continue
+
                 if d is not None and s is not None:
                     if d in self.outputs and s in self.inputs:
                         await emit_patch(s, d, origin="RossTalk")
@@ -101,21 +105,27 @@ class RossTalkEmulator:
             logicals = load_logical_ids()
             receivers_cache = cache.get("receivers", [])
 
-            for receiver_name, receiver_info in logicals.get("receivers", {}).items():
+            for receiver_name, receiver_info in (logicals.get("receivers") or {}).items():
                 receiver_id = receiver_info.get("id")
-                for source_name, source_info in logicals.get("sources", {}).items():
+                if receiver_id is None:
+                    continue
+
+                for source_name, source_info in (logicals.get("senders") or {}).items():
                     match = True
                     for essence in ["video", "audio", "data"]:
                         s_id = source_info.get(essence)
                         r_id = receiver_info.get(essence)
                         if not s_id or not r_id:
                             continue
+
                         r_obj = next(
-                            (r for r in receivers_cache if r.get("id") == r_id), None
+                            (r for r in receivers_cache if r.get("id") == r_id),
+                            None
                         )
                         if not r_obj or r_obj.get("subscription", {}).get("sender_id") != s_id:
                             match = False
                             break
+
                     if match:
                         self.routing[receiver_id] = source_info.get("id")
                         break

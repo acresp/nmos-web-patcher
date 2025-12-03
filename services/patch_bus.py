@@ -10,9 +10,11 @@ from services.cache import read_cache
 
 CACHE_FILE = "data_cache.json"
 
-# Vérifie si un patch/disconnect est considéré comme réussi
 def _is_success(patch_result: dict) -> bool:
-    """Détermine si le patch d'une essence est réussi, même si le backend ne renvoie pas strictement 'success'."""
+    """
+    Détermine si le patch d'une essence est réussi,
+    même si le backend ne renvoie pas strictement 'success'.
+    """
     if not isinstance(patch_result, dict):
         return False
 
@@ -31,47 +33,53 @@ def _is_success(patch_result: dict) -> bool:
     ]
     return any(bool(x) for x in flags)
 
-# Applique un patch logique NMOS (ou un disconnect si sender_id=None)
 async def emit_patch(sender_id, receiver_id, origin="external"):
     print(f"[PATCH] {origin}: {receiver_id} ← {sender_id}")
 
-    # Gestion du disconnect global (sender_id == "disconnect")
     if sender_id in (None, "disconnect"):
         print(f"[PATCH] {origin}: disconnect request for logical receiver {receiver_id}")
 
         logicals = load_logical_ids()
         receivers_map = logicals.get("receivers", {})
-        receiver_entry = next((v for v in receivers_map.values() if v.get("id") == receiver_id), None)
+        receiver_entry = next(
+            (v for v in receivers_map.values() if v.get("id") == receiver_id),
+            None
+        )
         if not receiver_entry:
             print(f"[PATCH] No receiver found for logical {receiver_id}")
             return {"status": "error", "message": "logical receiver not found"}
 
         nodes = load_nodes()
         cache = read_cache()
+        receivers = cache.get("receivers", [])
         disconnected = {}
 
         for essence in ("video", "audio", "data"):
             receiver_uuid = receiver_entry.get(essence)
             if not receiver_uuid:
-                disconnected[essence] = {"status": "skipped", "reason": "no receiver id"}
+                disconnected[essence] = {
+                    "status": "skipped",
+                    "reason": "no receiver id"
+                }
                 continue
 
             try:
-                result = disconnect_receiver(nodes, receiver_uuid, receivers=cache.get("receivers", []))
+                result = disconnect_receiver(nodes, receiver_uuid, receivers=receivers)
                 disconnected[essence] = result
                 print(f"[PATCH] Disconnected {essence.upper()} receiver {receiver_uuid}")
             except Exception as e:
                 disconnected[essence] = {"status": "error", "message": str(e)}
                 print(f"[PATCH] ERROR disconnect {essence}: {e}")
 
-        # Notifie les émulateurs (si actifs)
         try:
             import builtins
             bmd = getattr(builtins, "videohub_emulator", None)
             ross = getattr(builtins, "rosstalk_emulator", None)
-            if bmd:
+
+            if bmd and hasattr(bmd, "clear_routing"):
                 await bmd.clear_routing(receiver_id, origin=origin)
-            if ross and receiver_id in ross.routing:
+
+            if ross and receiver_id in getattr(ross, "routing", {}):
                 del ross.routing[receiver_id]
                 print(f"[ROSS PROTOCOL] Cleared route for {receiver_id}")
         except Exception as e:
@@ -85,14 +93,16 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
 
     nodes = load_nodes()
     cache = read_cache()
+
     receivers = cache.get("receivers", [])
-    sources = cache.get("sources", [])
-    print(f"[CACHE] Loaded {len(receivers)} receivers / {len(sources)} sources from cache")
+    senders = cache.get("senders") or cache.get("sources", [])
+
+    print(f"[CACHE] Loaded {len(receivers)} receivers / {len(senders)} senders from cache")
 
     async def patch_one_in_order(essence: str):
-        """Patch NMOS ou disconnect pour une seule essence (video/audio/data)."""
         s = src.get(essence)
         d = dst.get(essence)
+
         if not d:
             result[essence] = {"status": "skipped", "reason": "missing receiver"}
             return
@@ -105,22 +115,36 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
             try:
                 res = disconnect_receiver(nodes, d, receivers=receivers)
                 print(f"[PATCH] Disconnect {essence.upper()} receiver {d}")
-                result[essence] = {"status": "success", "receiver": d, "message": "essence disconnected"}
+                result[essence] = {
+                    "status": "success",
+                    "receiver": d,
+                    "message": "essence disconnected"
+                }
             except Exception as e:
-                result[essence] = {"status": "error", "receiver": d, "message": str(e)}
+                result[essence] = {
+                    "status": "error",
+                    "receiver": d,
+                    "message": str(e)
+                }
                 print(f"[PATCH] ERROR disconnect {essence}: {e}")
             return
 
+        # patch standard NMOS
         try:
             patch_result = await change_source(
                 nodes,
                 d,  # receiver UUID NMOS
                 s,  # sender UUID NMOS
                 receivers=receivers,
-                sources=sources
+                sources=senders
             )
         except Exception as e:
-            result[essence] = {"status": "error", "sender": s, "receiver": d, "message": str(e)}
+            result[essence] = {
+                "status": "error",
+                "sender": s,
+                "receiver": d,
+                "message": str(e)
+            }
             return
 
         success = _is_success(patch_result)
@@ -145,7 +169,6 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
                 except Exception as e:
                     print(f"[CACHE] Failed to write cache update (essence={essence}): {e}")
 
-    # Boucle principale sur les essences
     for essence in ("video", "audio", "data"):
         await patch_one_in_order(essence)
 
@@ -155,7 +178,7 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
 
         source_map = {
             v.get("video"): v.get("id")
-            for v in (logicals.get("sources") or {}).values()
+            for v in (logicals.get("senders") or {}).values()
             if isinstance(v.get("id"), int) and v.get("video")
         }
         receiver_map = {
@@ -173,7 +196,8 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
         if s_logical is not None and d_logical is not None:
             if bmd:
                 await bmd.set_routing(
-                    s_logical, d_logical,
+                    s_logical,
+                    d_logical,
                     origin=origin,
                     force_broadcast=(origin != "BMD")
                 )
@@ -187,9 +211,9 @@ async def emit_patch(sender_id, receiver_id, origin="external"):
     except Exception as e:
         print(f"[PATCH] Warning: Failed to notify emulator(s): {e}")
 
-    # Résumé des statuts
     ok = [k for k, v in result.items() if v.get("status") in ("success", "ok")]
     ko = [k for k, v in result.items() if v.get("status") not in ("success", "skipped", "ok")]
+
     if ok:
         print(f"[OK] Patch applied for essences: {', '.join(ok)} (no global refresh)")
     if ko:

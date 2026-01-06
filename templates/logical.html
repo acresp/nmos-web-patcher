@@ -73,11 +73,11 @@
   </div>
   <div class="card-body">
     {% for entry_type, entry_label, items, resources in [
-        ('sources', 'Senders', logical_ids.sources, senders),
+        ('senders', 'Senders', logical_ids.senders, senders),
         ('receivers', 'Receivers', logical_ids.receivers, receivers)
     ] %}
       {% if items %}
-        <h5 class="{{ 'text-primary' if entry_type == 'sources' else 'text-success' }} mt-4">{{ entry_label }}</h5>
+        <h5 class="{{ 'text-primary' if entry_type == 'senders' else 'text-success' }} mt-4">{{ entry_label }}</h5>
         <div class="table-responsive">
           <table class="table table-bordered align-middle small">
             <thead class="table-light">
@@ -134,7 +134,7 @@ setTimeout(() => {
 function editRow(type, name) {
   const row = document.getElementById(`row-${type}-${name}`);
   const formId = `form-${type}-${name}`;
-  const resources = (type === 'sources') ? senders : receivers;
+  const resources = (type === 'senders') ? senders : receivers;
 
   const current = {
     id: row.querySelector('.id-cell').dataset.id,
@@ -193,7 +193,7 @@ function editRow(type, name) {
 
 function populateEssenceDropdowns() {
   const listType = document.getElementById("entry-type-select").value;
-  const list = (listType === "sources") ? senders : receivers;
+  const list = (listType === "senders") ? senders : receivers;
 
   const selects = {
     video: document.getElementById("video-select"),

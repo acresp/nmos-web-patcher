@@ -94,6 +94,10 @@ def detect_nmos_and_connection_versions(node_url, timeout=3):
     return versions
 
 def get_resource_type(resource, flows_index=None):
+    res_type = (resource.get("type") or resource.get("essence") or "").lower()
+    if "video" in res_type: return "video"
+    if "audio" in res_type: return "audio"
+    if "ancillary" in res_type or "metadata" in res_type: return "ancillary"
 
     flow_id = resource.get("flow_id")
     if flows_index and flow_id in flows_index:
@@ -101,35 +105,21 @@ def get_resource_type(resource, flows_index=None):
         fmt = flow.get("format", "").lower()
         mt = flow.get("media_type", "").lower()
 
-        # Audio
-        if "audio" in fmt or mt.startswith("audio/"):
-            return "audio"
+        if "audio" in fmt or mt.startswith("audio/"): return "audio"
+        if "data" in fmt and ("smpte291" in mt or "291" in mt): return "ancillary"
+        if "video" in fmt or mt.startswith("video/"): return "video"
 
-        # ANC SMPTE291
-        if "data" in fmt and ("smpte291" in mt or "291" in mt):
-            return "ancillary"
-
-        # Vidéo
-        if "video" in fmt or mt.startswith("video/"):
-            return "video"
-
-        return "unknown"
+    label = resource.get("label", "").lower()
+    if "video" in label: return "video"
+    if "audio" in label: return "audio"
+    if "metadata" in label or "ancillary" in label: return "ancillary"
 
     caps = resource.get("caps", {})
     if isinstance(caps, dict):
         mts = [m.lower() for m in caps.get("media_types", [])]
-
-        # Audio
-        if any(m.startswith("audio/") for m in mts):
-            return "audio"
-
-        # ANC SMPTE291
-        if any("smpte291" in m or "291" in m for m in mts):
-            return "ancillary"
-
-        # Vidéo
-        if any(m.startswith("video/") and "smpte291" not in m for m in mts):
-            return "video"
+        if any(m.startswith("audio/") for m in mts): return "audio"
+        if any("smpte291" in m or "291" in m for m in mts): return "ancillary"
+        if any(m.startswith("video/") and "smpte291" not in m for m in mts): return "video"
 
     return "unknown"
 
@@ -152,7 +142,7 @@ def fetch_node_data(node, timeout=3):
         'ip': node.get('ip', node_url),
         'version': nmos_version,
         'receivers': [],
-        'sources': [],
+        'senders': [],
         'flows': []
     }
 
@@ -182,7 +172,7 @@ def fetch_node_data(node, timeout=3):
                     'node_url': node_url,
                     'versions': versions
                 })
-                data['sources'].append(item)
+                data['senders'].append(item)
     except Exception as e:
         print(f"[WARNING] Node {node['name']} senders skipped: {e}")
 

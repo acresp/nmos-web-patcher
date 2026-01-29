@@ -50,7 +50,7 @@ def index():
     cache = read_cache()
 
     receivers = cache.get('receivers', [])
-    senders   = cache.get('senders') or cache.get('sources', [])
+    senders   = cache.get('senders', [])
 
     grouped_receivers = group_by_node_and_type(sorted(receivers, key=extract_sort_key))
     grouped_senders   = group_by_node_and_type(sorted(senders,   key=extract_sort_key))
@@ -58,13 +58,13 @@ def index():
     nodes = load_nodes()
 
     return render_template(
-        'index.html',
-        grouped_receivers=grouped_receivers,
-        grouped_sources=grouped_senders,
-        receivers=receivers,
-        sources=senders,
-        nodes=nodes,
-        node_count=len(nodes),
-        receiver_count=len(receivers),
-        source_count=len(senders)
-    )
+    'index.html',
+    grouped_receivers=grouped_receivers,
+    grouped_senders=grouped_senders,
+    receivers=receivers,
+    senders=senders,
+    nodes=nodes,
+    node_count=len(nodes),
+    receiver_count=len(receivers),
+    sender_count=len(senders)
+)

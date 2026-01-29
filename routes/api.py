@@ -126,7 +126,7 @@ def get_current_sender(receiver_id):
         print(f"[WARN] Fallback to cache for receiver {receiver_id}: {e}")
         sender_id = receiver_obj.get("subscription", {}).get("sender_id")
 
-        senders_list = cache.get("senders") or cache.get("sources", [])
+        senders_list = cache.get("senders", [])
         sender_label = next(
             (s.get("label") for s in senders_list if s.get("id") == sender_id),
             sender_id

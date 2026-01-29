@@ -36,10 +36,10 @@
         </div>
         <div class="col-md-2">
           <label class="form-label">Type</label>
-          <select class="form-select" name="entry_type" id="entry-type-select">
-            <option value="sources">Sender</option>
-            <option value="receivers">Receiver</option>
-          </select>
+<select class="form-select" name="entry_type" id="entry-type-select">
+  <option value="senders">Sender</option>
+  <option value="receivers">Receiver</option>
+</select>
         </div>
       </div>
 
@@ -159,7 +159,7 @@ function editRow(type, name) {
     });
 
     const opts = [];
-    if (type === "sources") {
+    if (type === "senders") {
       opts.push('<option value="disconnect">Disconnect</option>');
     }
     opts.push('<option value="">-- None --</option>');
@@ -193,6 +193,7 @@ function editRow(type, name) {
 
 function populateEssenceDropdowns() {
   const listType = document.getElementById("entry-type-select").value;
+
   const list = (listType === "senders") ? senders : receivers;
 
   const selects = {
@@ -201,36 +202,35 @@ function populateEssenceDropdowns() {
     data: document.getElementById("data-select")
   };
 
-  // On garde la 1ère option (None), on supprime le reste
   Object.values(selects).forEach(sel => {
-    while (sel.options.length > 1) sel.remove(1);
+    if (sel) {
+      while (sel.options.length > 1) sel.remove(1);
+    }
   });
 
-  // Si c’est une source, on ajoute “Disconnect” juste après le premier élément
-  if (listType === "sources") {
+  if (listType === "receivers") {
     Object.values(selects).forEach(sel => {
-      const disconnectOpt = document.createElement("option");
-      disconnectOpt.value = "disconnect";
-      disconnectOpt.textContent = "Disconnect";
-      sel.add(disconnectOpt);
+      const opt = document.createElement("option");
+      opt.value = "disconnect";
+      opt.textContent = "Disconnect";
+      sel.add(opt);
     });
   }
 
-  // On groupe par node
   const grouped = {};
   list.forEach(item => {
-    const node = item.device?.label || item.node_name || item.label || "Unknown Node";
+    const node = item.node_name || "Unknown Node";
     if (!grouped[node]) grouped[node] = [];
     grouped[node].push(item);
   });
 
-  // On ajoute les options groupées
-  for (const [nodeName, items] of Object.entries(grouped)) {
-    const groupHeader = (select) => {
+  for (const [nodeName, nodeItems] of Object.entries(grouped)) {
+    
+    const addHeader = (select) => {
       const opt = document.createElement("option");
       opt.textContent = `-- ${nodeName} --`;
       opt.disabled = true;
-      opt.style = "font-weight: bold; background: #f0f0f0;";
+      opt.style = "font-weight: bold; background: #f0f0f0; color: #333;";
       select.add(opt);
     };
 
@@ -241,16 +241,24 @@ function populateEssenceDropdowns() {
       select.add(opt);
     };
 
-    const videoItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("video"));
-    const audioItems = items.filter(i => (i.essence_type || "").toLowerCase().includes("audio"));
-    const dataItems = items.filter(i => {
-      const type = (i.essence_type || "").toLowerCase();
-      return type.includes("ancillary") || type.includes("data");
+    const vItems = nodeItems.filter(i => {
+      const t = (i.essence_type || i.type || "").toLowerCase();
+      return t.includes("video");
     });
 
-    if (videoItems.length) { groupHeader(selects.video); videoItems.forEach(i => addItem(selects.video, i)); }
-    if (audioItems.length) { groupHeader(selects.audio); audioItems.forEach(i => addItem(selects.audio, i)); }
-    if (dataItems.length)  { groupHeader(selects.data);  dataItems.forEach(i => addItem(selects.data,  i)); }
+    const aItems = nodeItems.filter(i => {
+      const t = (i.essence_type || i.type || "").toLowerCase();
+      return t.includes("audio");
+    });
+
+    const dItems = nodeItems.filter(i => {
+      const t = (i.essence_type || i.type || "").toLowerCase();
+      return t.includes("ancillary") || t.includes("data") || (!t.includes("video") && !t.includes("audio"));
+    });
+
+    if (vItems.length) { addHeader(selects.video); vItems.forEach(i => addItem(selects.video, i)); }
+    if (aItems.length) { addHeader(selects.audio); aItems.forEach(i => addItem(selects.audio, i)); }
+    if (dItems.length) { addHeader(selects.data);  dItems.forEach(i => addItem(selects.data,  i)); }
   }
 }
 

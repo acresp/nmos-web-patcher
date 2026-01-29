@@ -59,7 +59,7 @@ def refresh_discovery(timeout=8):
                 node_data = fetch_node_data(node, timeout=timeout)
 
                 all_receivers.extend(node_data.get("receivers", []))
-                all_senders.extend(node_data.get("sources", []))  # raw → senders
+                all_senders.extend(node_data.get("senders", []))
                 all_flows.extend(node_data.get("flows", []))
 
                 all_nodes_info.append({
@@ -71,7 +71,7 @@ def refresh_discovery(timeout=8):
 
                 print(f"[INFO] Node {node_name}: "
                       f"{len(node_data.get('receivers', []))} receivers, "
-                      f"{len(node_data.get('sources', []))} senders, "
+                      f"{len(node_data.get('senders', []))} senders, "
                       f"{len(node_data.get('flows', []))} flows")
 
             except Exception as e:
@@ -92,7 +92,7 @@ def refresh_discovery(timeout=8):
         cache = {
             "nodes": all_nodes_info,
             "receivers": all_receivers,
-            "senders": all_senders,    # ✔ unique source of truth
+            "senders": all_senders,
             "flows": all_flows
         }
 

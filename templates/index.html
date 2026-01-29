@@ -18,7 +18,7 @@
   </div>
 
   <div class="text-center text-muted small mb-2">
-    🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ source_count }}
+    🟢 Nodes: {{ node_count }} | 🎯 Receivers: {{ receiver_count }} | 📡 Senders: {{ sender_count }}
   </div>
 
   <div class="selected-info mt-4 p-3 border rounded bg-light text-center" style="max-width: 600px; margin: auto;">
@@ -66,7 +66,7 @@
   <!-- SOURCES -->
   <div class="col-md-5 offset-md-2">
     <h2>Sources</h2>
-    {% for node_name, essences in grouped_sources.items() %}
+    {% for node_name, essences in grouped_senders.items() %}
       <div class="mb-4">
         <button class="btn btn-sm btn-secondary node-toggle w-100 text-start" type="button" onclick="toggleNode(this)">
           <span class="arrow">▸</span> <strong>{{ node_name }}</strong>

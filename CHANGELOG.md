@@ -7,6 +7,15 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.7.2] – 2026-01-29
+
+### Fixes
+
+- Senders were not correctly shown in dropdowns of Logical groups page
+- Other bugs related to senders/sources terminology changes of 1.7.1...
+
+---
+
 ## [1.7.1] – 2025-12-03
 
 ### Changed

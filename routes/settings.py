@@ -20,7 +20,7 @@ def settings():
     settings_data = load_settings()
 
     cache = load_cache()
-    senders = cache.get("senders") or cache.get("sources", [])
+    senders = cache.get("senders", [])
     receivers = cache.get("receivers", [])
 
     return render_template(
@@ -127,27 +127,34 @@ def update_settings():
 def logical_page():
     cache = load_cache()
 
-    senders = cache.get("senders") or cache.get("sources", [])
+    flows = cache.get("flows", [])
+    flows_index = {f['id']: f for f in flows}
+
+    senders = cache.get("sources", []) if cache.get("sources") else cache.get("senders", [])
     receivers = cache.get("receivers", [])
 
     for s in senders:
         s["essence_type"] = (
             s.get("type")
             or s.get("essence")
-            or get_resource_type(s)
+            or get_resource_type(s, flows_index)
         )
     for r in receivers:
         r["essence_type"] = (
             r.get("type")
             or r.get("essence")
-            or get_resource_type(r)
+            or get_resource_type(r, flows_index)
         )
 
     def parse_label_sortkey(label):
         try:
             m = re.search(r"\[(\d+),(\d+),(\d+)\]", label)
             sfx = re.search(r"\](\d{2})", label)
-            a, b, c = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (999, 999, 999)
+            if m:
+                a, b, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            else:
+                a, b, c = 999, 999, 999
+            
             s = int(sfx.group(1)) if sfx else 0
             return (a, b, c, s, label.lower())
         except Exception:
@@ -173,7 +180,7 @@ def logical_page():
     return render_template(
         "logical.html",
         senders=senders,
-        grouped_senders=grouped_senders,
+        grouped_senders=dict(grouped_senders),
         receivers=receivers,
         logical_ids=logical_ids
     )
